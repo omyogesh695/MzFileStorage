@@ -6,7 +6,7 @@ class Config:
     API_HASH = os.environ.get("API_HASH", "2f10533d9068507d0c10bf1074527167")
 
     # Your Bot Token
-    BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+    BOT_TOKEN = os.environ.get("BOT_TOKEN", "8590179820:AAHVLA6j_GTXymf4imFbnT6ySmvVT1HrgYM")
 
     # Your Admin User ID
     ADMIN_ID = int(os.environ.get("ADMIN_ID", "6139607609 5673859971"))
@@ -15,7 +15,7 @@ class Config:
     OWNER_DB_CHANNEL = int(os.environ.get("OWNER_DB_CHANNEL", "-1003433884727"))
 
     # Your MongoDB Connection String
-    MONGO_URI = os.environ.get("MONGO_URI", "")
+    MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://yogedrasama:D8oNvWFxBws2et6W@cluster0.5m2w6n8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
     DATABASE_NAME = os.environ.get("DATABASE_NAME", "File_Storage")
     
     # --- TMDB API Key (Optional, for posters) ---
