@@ -24,7 +24,7 @@ class Config:
     # --- DECREED MODIFICATION: Replaced VPS_IP and VPS_PORT ---
     # The full public URL of your application (e.g., https://my-bot.koyeb.app or https://my-bot.herokuapp.com)
     # DO NOT add a trailing slash / at the end!
-    APP_URL = os.environ.get("APP_URL", "")
+    APP_URL = os.environ.get("APP_URL", "accessible-faustina-mzfilestore-9b31c556.koyeb.app")
     
     # The name of the file that stores your bot's username (for the redirector)
     BOT_USERNAME_FILE = "bot_username.txt" #do not change this
@@ -33,4 +33,4 @@ class Config:
     # VVVVVV YAHAN PAR NAYA TUTORIAL LINK ADD KIYA GAYA HAI VVVVVV #
     # ================================================================= #
     # Yahan apna tutorial video ya channel ka link daalein
-    BOT_UPDATE = os.environ.get("BOT_UPDATE", "https://t me/mzbotz")
+    TUTORIAL_URL = os.environ.get("TUTORIAL_URL", "https://t me/mzbotz")
