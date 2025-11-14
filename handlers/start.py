@@ -180,8 +180,8 @@ async def start_command(client, message):
                 InlineKeyboardButton("Tutorial 🎬", url=Config.TUTORIAL_URL)
             ],
             [
-                InlineKeyboardButton("📢 Update Channel", url="https://t.me/joinnowearn"),
-                InlineKeyboardButton("👑 Owner", url="https://t.me/akash5213")
+                InlineKeyboardButton("📢 Update Channel", url="https://t.me/mzbotz"),
+                InlineKeyboardButton("👑 Owner", url="https://t.me/mzowner")
             ]
         ])
         
