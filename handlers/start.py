@@ -278,7 +278,7 @@ async def handle_public_file_request(client, message, requester_id, payload):
 
     if not verified:
         verify_link = f"https://t.me/{client.me.username}?start=verify_{owner_id}_{file_unique_id}"
-        shortlink = await get_shortlink(verify_link, requester_id)
+        shortlink = await get_shortlink(deep_link, requester_id)
 
         buttons = [
             [InlineKeyboardButton("🔐 Verify Now", url=shortlink)],
