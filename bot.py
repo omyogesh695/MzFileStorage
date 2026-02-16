@@ -500,7 +500,7 @@ class Bot(Client):
     async def stop(self, *args):
         logger.info("Stopping bot...")
         if self.web_runner: await self.web_runner.cleanup()
-        await super.stop()
+        await super().stop()
         logger.info("Bot stopped.")
 
 if __name__ == "__main__":
