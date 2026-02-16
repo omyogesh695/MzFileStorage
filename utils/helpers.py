@@ -317,7 +317,7 @@ async def create_post(client, user_id, messages, cache: dict):
         deep_link = f"https://t.me/{bot_username}?start=get_{owner_id}_{file_unique_id}"
         
         # The deep link is then shortened.
-        link = await get_shortlink(deep_link, owner_id)
+        link = deep_link
         # --- END LEGENDARY CORRECTION ---
 
         file_size_str = format_bytes(info['file_size'])
