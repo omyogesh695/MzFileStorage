@@ -272,19 +272,12 @@ async def handle_public_file_request(client, message, requester_id, payload):
                 pass
 
     # ===============================
-    # VERIFY CHECK (NEW)
+    # VERIFY CHECK
     # ===============================
     verified = await is_user_verified(owner_id, requester_id)
-               # Send 24 hour confirmation message
-               await message.reply(
-                   "✅ <b>Verification Successful!</b>\n\n"
-                   "⏳ Your access is now valid for <b>24 Hours</b>.\n"
-                   "After that, you will need to verify again.\n\n"
-                   "Enjoy your file 🎉",
-                   parse_mode="HTML"
-              )
+
     if not verified:
-        verify_link = f"https://t.me/{client.me.username}?start=verify_{owner_id}_{file_unique_id}"
+        deep_link = f"https://t.me/{client.me.username}?start=verify_{owner_id}_{file_unique_id}"
         shortlink = await get_shortlink(deep_link, requester_id)
 
         buttons = [
@@ -305,7 +298,6 @@ async def handle_public_file_request(client, message, requester_id, payload):
     # ===============================
     await send_file(client, requester_id, owner_id, file_unique_id)
     
-
 
 @Client.on_callback_query(filters.regex(r"^retry_"))
 async def retry_handler(client, query):
