@@ -149,9 +149,19 @@ async def start_command(client, message):
                 _, owner_id_str, file_unique_id = payload.split("_", 2)
                 owner_id = int(owner_id_str)
 
+                # Mark user verified (24hr expiry handled in DB)
                 await claim_verification_for_file(owner_id, file_unique_id, requester_id)
 
-                await message.reply_text("✅ Verification successful! Sending your file...")
+                # 24 Hour Success Message
+                await message.reply(
+                    "✅ <b>Verification Successful!</b>\n\n"
+                    "⏳ Your access is now valid for <b>24 Hours</b>.\n"
+                    "After that, you will need to verify again.\n\n"
+                    "Enjoy your file 🎉",
+                    parse_mode="HTML"
+                )
+
+                # Send file
                 await send_file(client, requester_id, owner_id, file_unique_id)
                 return
 
@@ -211,7 +221,7 @@ async def start_command(client, message):
         reply_markup=keyboard,
         parse_mode=enums.ParseMode.HTML,
         disable_web_page_preview=True
-                )
+        )
 
 
 async def handle_public_file_request(client, message, requester_id, payload):
