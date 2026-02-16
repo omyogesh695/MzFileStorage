@@ -59,7 +59,6 @@ async def handle_private_file(client, message):
 
 async def send_file(client, requester_id, owner_id, file_unique_id):
     try:
-        # --- DECREED MODIFICATION: Check for APP_URL ---
         if not Config.APP_URL:
             await client.send_message(requester_id, "Sorry, the bot's streaming service is not configured by the admin.")
             return
@@ -74,7 +73,6 @@ async def send_file(client, requester_id, owner_id, file_unique_id):
 
         await record_daily_view(owner_id, requester_id)
 
-        # --- DECREED MODIFICATION: Use APP_URL ---
         buttons = [
             [InlineKeyboardButton("📺 Stream / Download", url=f"{Config.APP_URL.rstrip('/')}/watch/{file_data['stream_id']}")]
         ]
@@ -85,9 +83,7 @@ async def send_file(client, requester_id, owner_id, file_unique_id):
         file_name_semi_cleaned = re.sub(r'(www\.|https?://)\S+', '', file_name_semi_cleaned).strip()
         file_name_semi_cleaned = file_name_semi_cleaned.replace('_', ' ')
         
-        filename_part = ""
-        filename_url = owner_settings.get("filename_url") if owner_settings else None
-
+        filename_url = owner_settings.get("filename_url")
         if filename_url:
             filename_part = f"[{file_name_semi_cleaned}]({filename_url})"
         else:
@@ -95,7 +91,7 @@ async def send_file(client, requester_id, owner_id, file_unique_id):
 
         caption = f"✅ **Here is your file!**\n\n{filename_part}"
         
-        await client.copy_message(
+        sent_message = await client.copy_message(
             chat_id=requester_id,
             from_chat_id=client.owner_db_channel,
             message_id=file_data['file_id'],
@@ -104,13 +100,16 @@ async def send_file(client, requester_id, owner_id, file_unique_id):
             parse_mode=enums.ParseMode.MARKDOWN
         )
 
+        # ✅ 10 Minute Auto Delete (Non-blocking)
+        asyncio.create_task(auto_delete_message(client, requester_id, sent_message.id))
+
     except UserIsBlocked:
         logger.warning(f"Could not send file to user {requester_id} as they blocked the bot.")
     except ValueError as e:
         logger.critical(f"FATAL ERROR in send_file: Peer ID '{client.owner_db_channel}' is invalid. Error: {e}")
         try:
             await client.send_message(requester_id, "Sorry, the bot is facing a configuration issue...")
-            await client.send_message(Config.ADMIN_ID, f"🚨 **CRITICAL ERROR** 🚨\n\nI could not send a file because my `OWNER_DB_CHANNEL` (`{client.owner_db_channel}`) is inaccessible.")
+            await client.send_message(Config.ADMIN_ID, f"🚨 **CRITICAL ERROR** 🚨\n\nOWNER_DB_CHANNEL is inaccessible.")
         except UserIsBlocked:
             pass 
     except Exception as e:
@@ -120,6 +119,15 @@ async def send_file(client, requester_id, owner_id, file_unique_id):
         except UserIsBlocked:
             pass
 
+
+async def auto_delete_message(client, chat_id, message_id):
+    await asyncio.sleep(600)  # 10 minutes
+
+    try:
+        await client.delete_messages(chat_id, message_id)
+        await client.send_message(chat_id, "🗑 File automatically deleted after 10 minutes.")
+    except Exception:
+        pass
 
 @Client.on_message(filters.command("start") & filters.private)
 async def start_command(client, message):
@@ -210,17 +218,60 @@ async def handle_public_file_request(client, message, requester_id, payload):
     try:
         _, owner_id_str, file_unique_id = payload.split("_", 2)
         owner_id = int(owner_id_str)
-    except:
-        return await message.reply_text("Invalid link.")
+    except (ValueError, IndexError):
+        return await message.reply_text("The link is invalid or corrupted.")
 
     file_data = await get_file_by_unique_id(owner_id, file_unique_id)
     if not file_data:
-        return await message.reply_text("File not found.")
+        return await message.reply_text("File not found or link has expired.")
 
     owner_settings = await get_user(owner_id)
 
     # ===============================
-    # VERIFY CHECK ADDED HERE
+    # FSUB CHECK (UNCHANGED)
+    # ===============================
+    fsub_channel = owner_settings.get('fsub_channel') if owner_settings else None
+
+    if fsub_channel:
+        try:
+            await client.get_chat_member(chat_id=fsub_channel, user_id="me")
+            try:
+                await client.get_chat_member(chat_id=fsub_channel, user_id=requester_id)
+            except UserNotParticipant:
+                try:
+                    invite_link = await client.export_chat_invite_link(fsub_channel)
+                except Exception:
+                    invite_link = None
+
+                buttons = []
+                if invite_link:
+                    buttons.append([InlineKeyboardButton("📢 Join Channel", url=invite_link)])
+
+                buttons.append([InlineKeyboardButton("🔄 Retry", callback_data=f"retry_{payload}")])
+
+                return await message.reply_text(
+                    "You must join the channel to continue.",
+                    reply_markup=InlineKeyboardMarkup(buttons)
+                )
+
+        except (ChatAdminRequired, ChannelInvalid, PeerIdInvalid, ChannelPrivate, UserNotParticipant) as e:
+            logger.error(f"FSub channel error for owner {owner_id} (Channel: {fsub_channel}): {e}")
+            try:
+                await client.send_message(
+                    chat_id=owner_id,
+                    text=(
+                        "⚠️ **FSub Channel Error**\n\n"
+                        f"Your FSub channel (`{fsub_channel}`) is no longer valid.\n\n"
+                        "It has been automatically disabled."
+                    ),
+                    parse_mode=enums.ParseMode.MARKDOWN
+                )
+                await update_user(owner_id, "fsub_channel", None)
+            except Exception:
+                pass
+
+    # ===============================
+    # VERIFY CHECK (NEW)
     # ===============================
     verified = await is_user_verified(owner_id, requester_id)
 
@@ -229,12 +280,16 @@ async def handle_public_file_request(client, message, requester_id, payload):
         shortlink = await get_shortlink(verify_link)
 
         buttons = [
-            [InlineKeyboardButton("🔐 Verify Now", url=shortlink)]
+            [InlineKeyboardButton("🔐 Verify Now", url=shortlink)],
+            [InlineKeyboardButton("📖 How To Verify", url=Config.TUTORIAL_URL)]
         ]
 
         return await message.reply_text(
-            "⚠️ You must verify to access this file.\n\nClick below to verify.",
-            reply_markup=InlineKeyboardMarkup(buttons)
+            "🔒 **Access Restricted**\n\n"
+            "To unlock this file, you must complete a quick verification.\n\n"
+            "👇 Click below to continue:",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=enums.ParseMode.MARKDOWN
         )
 
     # ===============================
