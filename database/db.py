@@ -160,19 +160,24 @@ async def is_user_verified(owner_id: int, requester_id: int) -> bool:
         return False
 
 async def claim_verification_for_file(owner_id: int, file_unique_id: str, requester_id: int) -> bool:
-    """Marks a file as 'verification claimed' for a specific owner to prevent reuse."""
-    unclaimed_file_query = {
+    """
+    Verifies user for 24 hours without locking the file.
+    """
+    file_exists = await files.find_one({
         'owner_id': owner_id,
-        'file_unique_id': file_unique_id,
-        'verification_claimed': {'$ne': True}
-    }
-    result = await files.update_one(unclaimed_file_query, {'$set': {'verification_claimed': True}})
-    if result.modified_count > 0:
-        await add_verified_user(owner_id, requester_id) 
-        # --- STATS: Record a view on successful verification claim ---
-        await record_daily_view(owner_id, requester_id)
-        return True
-    return False
+        'file_unique_id': file_unique_id
+    })
+
+    if not file_exists:
+        return False
+
+    # Mark user verified for 24h
+    await add_verified_user(owner_id, requester_id)
+
+    # Record stats
+    await record_daily_view(owner_id, requester_id)
+
+    return True
 
 async def set_post_channel(user_id: int, channel_id: int):
     """Saves the post channel ID for a specific user."""
