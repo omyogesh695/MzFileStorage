@@ -149,7 +149,7 @@ async def start_command(client, message):
                 _, owner_id_str, file_unique_id = payload.split("_", 2)
                 owner_id = int(owner_id_str)
 
-                await claim_verification_for_file(owner_id, requester_id)
+                await claim_verification_for_file(owner_id, file_unique_id, requester_id)
 
                 await message.reply_text("✅ Verification successful! Sending your file...")
                 await send_file(client, requester_id, owner_id, file_unique_id)
