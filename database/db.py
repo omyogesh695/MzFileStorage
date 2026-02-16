@@ -114,8 +114,8 @@ async def is_user_verified(requester_id: int, owner_id: int) -> bool:
         verification = await verified_users.find_one({'requester_id': requester_id, 'owner_id': owner_id})
         if not verification or 'verified_at' not in verification or not isinstance(verification['verified_at'], datetime.datetime):
             return False
-        twelve_hours_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=12)
-        return verification['verified_at'] > twelve_hours_ago
+        twenty_four_hours_ago = datetime.datetime.utcnow() - datetime.timedelta(hours=24)
+            return verification['verified_at'] > twenty_four_hours_ago
     except Exception as e:
         logger.error(f"An error occurred in is_user_verified check: {e}")
         return False
