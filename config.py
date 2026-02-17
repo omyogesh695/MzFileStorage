@@ -15,7 +15,7 @@ class Config:
     OWNER_DB_CHANNEL = int(os.environ.get("OWNER_DB_CHANNEL", "-1003433884727"))
 
     # Your MongoDB Connection String
-    MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://yogedrasama:D8oNvWFxBws2et6W@cluster0.5m2w6n8.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
+    MONGO_URI = os.environ.get("MONGO_URI", "mongodb+srv://metangevilas29:GyUAtsYGmMf4mGSH@cluster0.zq0ei.mongodb.net/?retryWrites=true&w=majority&appName=Cluster0")
     DATABASE_NAME = os.environ.get("DATABASE_NAME", "File_Storage")
     
     # --- TMDB API Key (Optional, for posters) ---
