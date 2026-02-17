@@ -212,7 +212,7 @@ async def start_command(client, message):
         ],
         [
             InlineKeyboardButton("📢 Update Channel", url="https://t.me/mzbotz"),
-            InlineKeyboardButton("👑 Owner", url="https://t.me/mzowner")
+            InlineKeyboardButton("👑 Owner", url="https://t.me/aonemarathi")
         ]
     ])
 
