@@ -61,37 +61,57 @@ async def handle_private_file(client, message):
 async def send_file(client, requester_id, owner_id, file_unique_id):
     try:
         if not Config.APP_URL:
-            await client.send_message(requester_id, "Sorry, the bot's streaming service is not configured by the admin.")
+            await client.send_message(
+                requester_id,
+                "Sorry, the bot's streaming service is not configured by the admin."
+            )
             return
 
         file_data = await get_file_by_unique_id(owner_id, file_unique_id)
         if not file_data:
-            return await client.send_message(requester_id, "Sorry, this file is no longer available or the link is invalid.")
-        
+            return await client.send_message(
+                requester_id,
+                "Sorry, this file is no longer available or the link is invalid."
+            )
+
         owner_settings = await get_user(file_data['owner_id'])
         if not owner_settings:
-             return await client.send_message(requester_id, "A configuration error occurred on the bot.")
+            return await client.send_message(
+                requester_id,
+                "A configuration error occurred on the bot."
+            )
 
         await record_daily_view(owner_id, requester_id)
 
         buttons = [
-            [InlineKeyboardButton("📺 Stream / Download", url=f"{Config.APP_URL.rstrip('/')}/watch/{file_data['stream_id']}")]
+            [InlineKeyboardButton(
+                "📺 Stream / Download",
+                url=f"{Config.APP_URL.rstrip('/')}/watch/{file_data['stream_id']}"
+            )]
         ]
         keyboard = InlineKeyboardMarkup(buttons)
-        
+
+        # Clean filename
         file_name_raw = file_data.get('file_name', 'N/A')
         file_name_semi_cleaned = re.sub(r'@[a-zA-Z0-9_]+', '', file_name_raw).strip()
         file_name_semi_cleaned = re.sub(r'(www\.|https?://)\S+', '', file_name_semi_cleaned).strip()
         file_name_semi_cleaned = file_name_semi_cleaned.replace('_', ' ')
-        
+
         filename_url = owner_settings.get("filename_url")
+
         if filename_url:
             filename_part = f"[{file_name_semi_cleaned}]({filename_url})"
         else:
             filename_part = f"`{file_name_semi_cleaned}`"
 
-        caption = f"✅ **Here is your file!**\n\n{filename_part}"
-        
+        # ✅ Auto delete notice inside caption
+        caption = (
+            f"✅ **Here is your file!**\n\n"
+            f"{filename_part}\n\n"
+            f"━━━━━━━━━━━━━━\n"
+            f"🗑 **File automatically deleted after 10 minutes.**"
+        )
+
         sent_message = await client.copy_message(
             chat_id=requester_id,
             from_chat_id=client.owner_db_channel,
@@ -101,22 +121,34 @@ async def send_file(client, requester_id, owner_id, file_unique_id):
             parse_mode=enums.ParseMode.MARKDOWN
         )
 
-        # ✅ 10 Minute Auto Delete (Non-blocking)
-        asyncio.create_task(auto_delete_message(client, requester_id, sent_message.id))
+        # ✅ Non-blocking auto delete
+        asyncio.create_task(
+            auto_delete_message(client, requester_id, sent_message.id)
+        )
 
     except UserIsBlocked:
         logger.warning(f"Could not send file to user {requester_id} as they blocked the bot.")
+
     except ValueError as e:
-        logger.critical(f"FATAL ERROR in send_file: Peer ID '{client.owner_db_channel}' is invalid. Error: {e}")
+        logger.critical(
+            f"FATAL ERROR in send_file: Peer ID '{client.owner_db_channel}' is invalid. Error: {e}"
+        )
         try:
             await client.send_message(requester_id, "Sorry, the bot is facing a configuration issue...")
-            await client.send_message(Config.ADMIN_ID, f"🚨 **CRITICAL ERROR** 🚨\n\nOWNER_DB_CHANNEL is inaccessible.")
+            await client.send_message(
+                Config.ADMIN_ID,
+                "🚨 **CRITICAL ERROR** 🚨\n\nOWNER_DB_CHANNEL is inaccessible."
+            )
         except UserIsBlocked:
-            pass 
+            pass
+
     except Exception as e:
         logger.exception("Error in send_file function")
         try:
-            await client.send_message(requester_id, "Something went wrong while sending the file.")
+            await client.send_message(
+                requester_id,
+                "Something went wrong while sending the file."
+            )
         except UserIsBlocked:
             pass
 
@@ -126,7 +158,6 @@ async def auto_delete_message(client, chat_id, message_id):
 
     try:
         await client.delete_messages(chat_id, message_id)
-        await client.send_message(chat_id, "🗑 File automatically deleted after 10 minutes.")
     except Exception:
         pass
 
