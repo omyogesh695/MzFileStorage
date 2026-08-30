@@ -311,13 +311,14 @@ async def create_post(client, user_id, messages, cache: dict):
         # This is the correct implementation based on the user's true intent.
         owner_id = user_id
         file_unique_id = info['file_unique_id']
-        bot_username = client.me.username # client object is passed to create_post
         
-        # This deep link will trigger the 'start' command in handlers/start.py
-        deep_link = f"https://t.me/{bot_username}?start=get_{owner_id}_{file_unique_id}"
+        # 1. Base64 payload banayein
+        code_string = f"get_{owner_id}_{file_unique_id}"
+        encoded_string = base64.urlsafe_b64encode(code_string.encode("ascii")).decode("ascii").strip("=")
         
-        # The deep link is then shortened.
-        link = deep_link
+        # 2. Direct Koyeb Link (Bina shortener ke)
+        link = f"{Config.APP_URL}/{encoded_string}"
+
         # --- END LEGENDARY CORRECTION ---
 
         file_size_str = format_bytes(info['file_size'])
