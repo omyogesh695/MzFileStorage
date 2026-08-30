@@ -82,11 +82,13 @@ async def send_file(client, requester_id, owner_id, file_unique_id):
             )
 
         await record_daily_view(owner_id, requester_id)
+        # Stream route ke liye channel ka actual message ID use karein
+        stream_message_id = file_data.get('file_id') or file_data.get('stream_id')
 
         buttons = [
             [InlineKeyboardButton(
                 "📺 Stream / Download",
-                url=f"{Config.APP_URL.rstrip('/')}/watch/{file_data['stream_id']}"
+                url=f"{Config.APP_URL.rstrip('/')}/watch/{stream_message_id}"
             )]
         ]
         keyboard = InlineKeyboardMarkup(buttons)
