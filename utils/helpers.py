@@ -312,12 +312,9 @@ async def create_post(client, user_id, messages, cache: dict):
         owner_id = user_id
         file_unique_id = info['file_unique_id']
         
-        # 1. Base64 payload banayein
-        code_string = f"get_{owner_id}_{file_unique_id}"
-        encoded_string = base64.urlsafe_b64encode(code_string.encode("ascii")).decode("ascii").strip("=")
-        
-        # 2. Direct Koyeb Link (Bina shortener ke)
-        link = f"{Config.APP_URL}/{encoded_string}"
+        # Normal Telegram Bot Deep Link (Click Here ke liye)
+        bot_username = client.me.username
+        link = f"https://t.me/{bot_username}?start=get_{user_id}_{info['file_unique_id']}"
 
         # --- END LEGENDARY CORRECTION ---
 
