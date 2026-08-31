@@ -12,7 +12,7 @@ class Config:
     ADMIN_ID = int(os.environ.get("ADMIN_ID", ""))
     
     # Your Owner DB Channel ID
-    OWNER_DB_CHANNEL = int(os.environ.get("OWNER_DB_CHANNEL", "-1003913551078"))
+    OWNER_DB_CHANNEL = int(os.environ.get("OWNER_DB_CHANNEL", "-1003433884727"))
 
     # Your MongoDB Connection String
     MONGO_URI = os.environ.get("MONGO_URI", "")
