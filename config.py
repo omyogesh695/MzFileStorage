@@ -19,18 +19,19 @@ class Config:
     DATABASE_NAME = os.environ.get("DATABASE_NAME", "File_Storage")
     
     # --- TMDB API Key (Optional, for posters) ---
-    TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "") #add your own
+    TMDB_API_KEY = os.environ.get("TMDB_API_KEY", "")
     
-    # --- DECREED MODIFICATION: Replaced VPS_IP and VPS_PORT ---
-    # The full public URL of your application (e.g., https://my-bot.koyeb.app or https://my-bot.herokuapp.com)
-    # DO NOT add a trailing slash / at the end!
+    # --- The full public URL of your application (Koyeb) ---
     APP_URL = os.environ.get("APP_URL", "https://few-agnese-mztech-651f3c23.koyeb.app")
     
     # The name of the file that stores your bot's username (for the redirector)
-    BOT_USERNAME_FILE = "bot_username.txt" #do not change this
+    BOT_USERNAME_FILE = "bot_username.txt"
     
-    # ================================================================= #
-    # VVVVVV YAHAN PAR NAYA TUTORIAL LINK ADD KIYA GAYA HAI VVVVVV #
-    # ================================================================= #
-    # Yahan apna tutorial video ya channel ka link daalein
+    # Tutorial Link
     TUTORIAL_URL = os.environ.get("TUTORIAL_URL", "https://t.me/mzbotzupdate")
+
+    # ================================================================= #
+    # 🔒 ANTI-BYPASS HMAC SECURITY CONFIGURATION #
+    # ================================================================= #
+    SECRET_KEY = os.environ.get("SECRET_KEY", "mz_super_secret_anti_bypass_key_2026")
+    LINK_EXPIRY = int(os.environ.get("LINK_EXPIRY", "900"))  # 15 minutes
