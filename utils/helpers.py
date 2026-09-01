@@ -37,7 +37,7 @@ LANGUAGE_MAP = {
     'spa': 'Spanish', 'spanish': 'Spanish',
     'ita': 'Italian', 'italian': 'Italian',
     'rus': 'Russian', 'russian': 'Russian',
-    'multi': 'Multi-Audio', 'dual': 'Dual-Audio', 'dl': 'Dual-Audio'
+    'multi': 'Multi-Audio', 'dual': 'Dual-Audio'
 }
 
 SERIAL_SHORTCUTS = {
