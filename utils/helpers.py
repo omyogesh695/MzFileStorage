@@ -125,7 +125,7 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
         clean_base = re.sub(r'\b(?:part|pt|cd)[\s._-]*0*[1-9]\d*\b', ' ', clean_base, flags=re.IGNORECASE)
 
     # 4. Extract Resolution
-    res_match = re.search(r'\b(2160p|4k|1080p|720p|540p|480p|360p|240p)\b', clean_base, re.IGNORECASE)
+    res_match = re.search(r'\b(2160p|4k|1080p|720p|576p|540p|480p|360p|240p)\b', clean_base, re.IGNORECASE)
     found_resolution = res_match.group(1).lower() if res_match else ""
 
     # 5. Extract Languages Directly from Original Raw Filename
@@ -235,7 +235,7 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
         'Web', r'\d+Kbps', 'UNCUT', 'ORG', 'HQ', 'ESubs', 'MSubs', 'REMASTERED', 'REPACK',
         'PROPER', 'iNTERNAL', 'Sample', 'Video', 'AMZN', 'JH', 'HS', 'DDP',
         'Hindi', 'English', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Punjabi', 'Marathi',
-        'NF', 'MAX', 'DSNP', 'ZEE5', 'HEVC', 'x265', 'x264', 'AAC',
+        'NF', 'MAX', 'DSNP', 'ZEE5', 'HEVC', 'x265', 'x264', 'AAC', '576p',
         '1tamilmv', 'www', 'mp4', 'mkv', 'avi', '2160p', '1080p', '720p', '540p', '480p', '360p',
         r'S\d{1,2}', r'E\d{1,4}'
     ]
