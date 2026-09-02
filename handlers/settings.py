@@ -1,4 +1,4 @@
-# widhvans/store/widhvans-store-a32dae6d5487c7bc78b13e2cdc18082aef6c58/handlers/settings.py 
+# handlers/settings.py 
 
 import asyncio
 import base64
