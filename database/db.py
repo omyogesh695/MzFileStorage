@@ -37,7 +37,8 @@ async def add_user(user_id):
         'shortener_mode': 'each_time',
         'daily_notify_enabled': False,
         # --- LEGENDARY MODIFICATION: Renamed to backup_channels and initialized as a list ---
-        'backup_channels': []
+        'backup_channels': [], 
+        'log_channel': None
     }
     await users.update_one({'user_id': user_id}, {"$setOnInsert": user_data}, upsert=True)
 
@@ -370,3 +371,28 @@ async def delete_posts_from_channel(owner_id, post_channel_id):
     """Deletes all backed-up post data for a given channel."""
     result = await posts.delete_many({'owner_id': owner_id, 'post_channel_id': post_channel_id})
     return result.deleted_count
+
+# ================================================================= #
+# 📜 LOG CHANNEL HELPER FUNCTIONS
+# ================================================================= #
+
+async def set_user_log_channel(user_id: int, channel_id: int):
+    """Saves or updates personal log channel ID for a user."""
+    return await users.update_one(
+        {'user_id': user_id},
+        {'$set': {'log_channel': channel_id}},
+        upsert=True
+    )
+
+async def remove_user_log_channel(user_id: int):
+    """Removes personal log channel for a user."""
+    return await users.update_one(
+        {'user_id': user_id},
+        {'$unset': {'log_channel': ''}}
+    )
+
+async def get_user_log_channel(user_id: int):
+    """Retrieves personal log channel ID for a specific user."""
+    user = await users.find_one({'user_id': user_id})
+    return user.get('log_channel') if user else None
+    
