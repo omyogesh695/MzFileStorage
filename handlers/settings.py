@@ -18,8 +18,10 @@ from database.db import (
     get_all_user_files, get_paginated_files, search_user_files,
     add_user, set_post_channel, set_index_db_channel, get_index_db_channel,
     get_posts_for_backup, delete_posts_from_channel, add_backup_channel,
-    get_backup_channels, remove_backup_channel, get_post_channels
+    get_backup_channels, remove_backup_channel, get_post_channels, 
+    set_user_log_channel, remove_user_log_channel,
 )
+from util.logger import send_client_config_log
 from utils.helpers import go_back_button, get_main_menu, create_post, clean_and_parse_filename, calculate_title_similarity, notify_and_remove_invalid_channel, format_bytes, PHOTO_CAPTION_LIMIT, TEXT_MESSAGE_LIMIT
 from features.shortener import validate_shortener, get_shortlink
 from features.poster import get_poster
@@ -1141,3 +1143,126 @@ async def set_shortener_logic(client, query):
         if api_msg:
             try: await api_msg.delete()
             except: pass
+# ================================================================= #
+# 📜 PERSONAL LOG CHANNEL SETTINGS HANDLERS
+# ================================================================= #
+
+async def get_log_channel_menu_parts(client, user_id):
+    current_log = await get_user_log_channel(user_id)
+    
+    text = "**📜 Personal Log Channel Settings**\n\n"
+    if current_log:
+        try:
+            chat = await client.get_chat(current_log)
+            text += f"Current Log Channel: **{chat.title}** (`{current_log}`)\n\n"
+        except Exception:
+            text += f"Current Log Channel ID: `{current_log}`\n\n"
+        text += "Status: Connected 🟢\nAapki links ki verification activity is channel me aayegi."
+    else:
+        text += "Status: Not Set 🔴\n\nAapne abhi tak koi Log Channel set nahi kiya hai."
+
+    buttons = [
+        [InlineKeyboardButton("✏️ Set / Change Log Channel", callback_data="set_log_channel")],
+    ]
+    if current_log:
+        buttons.append([InlineKeyboardButton("🗑️ Remove Log Channel", callback_data="remove_log_channel")])
+    buttons.append([go_back_button(user_id).inline_keyboard[0][0]])
+    return text, InlineKeyboardMarkup(buttons)
+
+
+@Client.on_callback_query(filters.regex("^log_channel_menu$"))
+async def log_channel_menu_handler(client, query):
+    user_id = query.from_user.id
+    text, markup = await get_log_channel_menu_parts(client, user_id)
+    await safe_edit_message(query, text=text, reply_markup=markup)
+
+
+@Client.on_callback_query(filters.regex("^remove_log_channel$"))
+async def remove_log_channel_handler(client, query):
+    user_id = query.from_user.id
+    await remove_user_log_channel(user_id)
+    await query.answer("✅ Log Channel removed successfully.", show_alert=True)
+    text, markup = await get_log_channel_menu_parts(client, user_id)
+    await safe_edit_message(query, text=text, reply_markup=markup)
+
+
+@Client.on_callback_query(filters.regex("^set_log_channel$"))
+async def set_log_channel_prompt(client, query):
+    await query.answer()
+    asyncio.create_task(set_log_channel_logic(client, query))
+
+
+async def set_log_channel_logic(client, query):
+    user_id = query.from_user.id
+    prompt_msg = None
+    response = None
+
+    try:
+        prompt_msg = await query.message.edit_text(
+            "📜 **Set Log Channel**\n\n"
+            "1. Apne channel me is Bot ko **Admin** banayein (`Post Messages` permission ke sath).\n"
+            "2. Apne target channel se koi message yahan **Forward** karein.",
+            reply_markup=go_back_button(user_id)
+        )
+        
+        response = await client.listen(chat_id=user_id, timeout=300, filters=filters.forwarded)
+
+        if not response.forward_from_chat:
+            await safe_edit_message(prompt_msg, "❌ Yeh valid channel forward nahi hai. Operation cancelled.", reply_markup=go_back_button(user_id))
+            return
+
+        channel_id = response.forward_from_chat.id
+        await safe_edit_message(prompt_msg, "⏳ Checking admin permissions...")
+
+        try:
+            member = await client.get_chat_member(channel_id, "me")
+            if member.status not in [enums.ChatMemberStatus.ADMINISTRATOR, enums.ChatMemberStatus.OWNER]:
+                raise ChatAdminRequired
+            if not member.privileges or not member.privileges.can_post_messages:
+                raise ChatAdminRequired
+        except (ChatAdminRequired, ChannelPrivate, UserNotParticipant) as e:
+            logger.error(f"Log channel permission failed: {e}")
+            await safe_edit_message(
+                prompt_msg,
+                "❌ **Permission Denied!**\n\n"
+                "Pehle bot ko channel me Admin banayein aur **Post Messages** ki permission dein, phir dobara try karein.",
+                reply_markup=go_back_button(user_id)
+            )
+            return
+
+        # 1. User DB me save karein
+        await set_user_log_channel(user_id, channel_id)
+
+        # 2. Confirmation post user ke log channel me
+        try:
+            await client.send_message(
+                channel_id,
+                f"✅ **Log Channel Successfully Connected!**\n👤 **Owner:** [{query.from_user.first_name}](tg://user?id={user_id})"
+            )
+        except Exception:
+            pass
+
+        # 3. Master Log alert trigger karein
+        chat_info = await client.get_chat(channel_id)
+        await send_client_config_log(client, query.from_user, chat_info)
+
+        await safe_edit_message(prompt_msg, f"✅ **Success!** Connected to **{response.forward_from_chat.title}** as your Log Channel.")
+        await asyncio.sleep(2)
+        
+        text, markup = await get_log_channel_menu_parts(client, user_id)
+        await safe_edit_message(prompt_msg, text=text, reply_markup=markup)
+
+    except ListenerTimeout:
+        if prompt_msg:
+            await safe_edit_message(prompt_msg, text="❗️ **Timeout:** Setup cancelled.", reply_markup=go_back_button(user_id))
+    except Exception as e:
+        logger.exception("Error in set_log_channel_logic")
+        if prompt_msg:
+            await safe_edit_message(prompt_msg, text=f"An error occurred: {e}", reply_markup=go_back_button(user_id))
+    finally:
+        if response:
+            try:
+                await response.delete()
+            except Exception:
+                pass
+            
