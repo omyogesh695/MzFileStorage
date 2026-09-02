@@ -259,14 +259,21 @@ class Bot(Client):
             if user_id in self.waiting_files and self.waiting_files[user_id]:
                 await self._start_new_collection(user_id, self.waiting_files.pop(user_id))
     
-    async def process_new_file(self, message, user_id):
+        async def process_new_file(self, message, user_id):
         async with self.user_batch_locks[user_id]:
             try:
                 await self.is_in_flood_wait.wait()
                 await self.is_healthy.wait()
 
                 media = getattr(message, message.media.value, None)
-                if media and hasattr(media, 'duration') and media.duration and media.duration < 1200:
+                
+                # Check if file is part of a multi-part segment (part001, part02, pt1, cd1, etc.)
+                is_part_file = False
+                if media and hasattr(media, 'file_name') and media.file_name:
+                    is_part_file = bool(re.search(r'\b(?:part|pt|cd)[\s._-]*\d+\b', media.file_name, re.IGNORECASE))
+
+                # Multi-part files skip nahi hongi, sirf standalone short clips/promos skip honge
+                if not is_part_file and media and hasattr(media, 'duration') and media.duration and media.duration < 1200:
                     logger.info(f"Skipping short duration file '{media.file_name}' for user {user_id}.")
                     if user_id in self.open_batches:
                         self.open_batches[user_id].setdefault('skipped_files', []).append(media.file_name)
@@ -304,7 +311,7 @@ class Bot(Client):
                         collection_data['timer'] = loop.call_later(20, lambda u=user_id: asyncio.create_task(self._finalize_collection(u)))
                         
                         if (time.time() - self.last_dashboard_edit_time.get(user_id, 0)) > 2:
-                             if collection_data.get('dashboard_message'):
+                            if collection_data.get('dashboard_message'):
                                 try:
                                     status_text = "⏳ **Status:** Collecting files... (timer reset)"
                                     await self.execute_with_retry(collection_data['dashboard_message'].edit_text, await self._generate_dashboard_text(collection_data, status_text))
