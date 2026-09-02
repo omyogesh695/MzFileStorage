@@ -1,4 +1,4 @@
-# widhvans/store/widhvans-store-a32dae6d5f5487c7bc78b13e2cdc18082aef6c58/database/db.py
+# database/db.py
 
 import datetime
 import logging
