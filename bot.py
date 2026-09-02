@@ -273,7 +273,7 @@ class Bot(Client):
                     is_part_file = bool(re.search(r'\b(?:part|pt|cd)[\s._-]*\d+\b', media.file_name, re.IGNORECASE))
 
                 # Multi-part files skip nahi hongi, sirf standalone short clips/promos skip honge
-                if not is_part_file and media and hasattr(media, 'duration') and media.duration and media.duration < 1200:
+                if not is_part_file and media and hasattr(media, 'duration') and media.duration and media.duration < 30:
                     logger.info(f"Skipping short duration file '{media.file_name}' for user {user_id}.")
                     if user_id in self.open_batches:
                         self.open_batches[user_id].setdefault('skipped_files', []).append(media.file_name)
