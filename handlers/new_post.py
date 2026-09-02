@@ -1,4 +1,4 @@
-# widhvans/store/widhvans-store-9eccd1e4991c3966a09275ea218d1ea1248ed0fe/handlers/new_post.py
+# handlers/new_post.py
 import logging
 from pyrogram import Client, filters
 from database.db import find_owner_by_index_channel
