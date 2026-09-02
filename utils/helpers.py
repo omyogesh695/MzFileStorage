@@ -433,4 +433,5 @@ async def notify_and_remove_invalid_channel(client, user_id, channel_id, channel
              await remove_from_list(user_id, db_key, channel_id)
         else:
              await update_user(user_id, db_key, None)
-        await client.send_message(user_id, f"⚠️ **Channel Inaccessible**\n\nYour {channel_type} Channel (ID: `{channel_id}`) has been automatically removed becaus
+        await client.send_message(user_id, f"⚠️ **Channel Inaccessible**\n\nYour {channel_type} Channel (ID: `{channel_id}`) has been automatically removed because I could not access it.")
+        return False
