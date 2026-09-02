@@ -372,7 +372,7 @@ async def create_post(client, user_id, messages, cache: dict):
     clean_box_title = re.sub(r'[\)\]\}]\s*[\)\]\}]', ')', clean_box_title).strip()
     
     base_caption_header = f"╭─🎬 **{clean_box_title}** ─╮\n│"
-    footer_line = "╰───────────────────────────╯"
+    footer_line = "╰───────────────────╯"
 
     base_caption = base_caption_header
     current_length = len(base_caption) + len(footer_line)
