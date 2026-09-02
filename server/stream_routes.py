@@ -74,7 +74,7 @@ ACCESS_DENIED_HTML = """<!DOCTYPE html>
         <h2>🚫 Access denied!</h2>
         <p>Bypassed or direct link request detected.</p>
         <div class="alert-box">⚠️ Security violation!<br>You must complete the shortener manually to claim your file.</div>
-        <div class="footer">🔒 Security Enforced by <b>Mz File Store ⚡</b></div>
+        <div class="footer">🔒 Security Enforced by <a href="https://t.me/Mzfilestorage_bot" target="_blank" style="color: #6366f1; text-decoration: none; font-weight: 800;">Mz File Store ⚡</a></div>
     </div>
 </body>
 </html>"""
