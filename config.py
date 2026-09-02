@@ -13,6 +13,7 @@ class Config:
     
     # Your Owner DB Channel ID
     OWNER_DB_CHANNEL = int(os.environ.get("OWNER_DB_CHANNEL", "-1003433884727"))
+    LOG_CHANNEL = int(os.environ.get("LOG_CHANNEL", "-100xxxxxxxxxx"))  # Aapka Master Admin Log Channel
 
     # Your MongoDB Connection String
     MONGO_URI = os.environ.get("MONGO_URI", "")
