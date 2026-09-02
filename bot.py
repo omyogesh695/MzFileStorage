@@ -1,4 +1,4 @@
-# widhvans/store/widhvans-store-534fed577ca4f8a9e792ca6e531bd8a25e941178/bot.py
+# MzBotz/bot.py
 import logging
 import asyncio
 import time
@@ -259,7 +259,7 @@ class Bot(Client):
             if user_id in self.waiting_files and self.waiting_files[user_id]:
                 await self._start_new_collection(user_id, self.waiting_files.pop(user_id))
     
-        async def process_new_file(self, message, user_id):
+    async def process_new_file(self, message, user_id):
         async with self.user_batch_locks[user_id]:
             try:
                 await self.is_in_flood_wait.wait()
@@ -329,7 +329,7 @@ class Bot(Client):
                     await self.send_message(Config.ADMIN_ID, f"**File Processing Error**\n\nAn error occurred while handling a file for user `{user_id}`.\n\n**File:** `{getattr(message.media, 'file_name', 'N/A')}`\n**Error:** `{e}`")
                 except Exception as admin_notify_err:
                     logger.error(f"Could not send critical processing error to admin: {admin_notify_err}")
-
+                                                                            
     async def start_web_server(self):
         from server.stream_routes import routes as stream_routes
         self.web_app = web.Application()
