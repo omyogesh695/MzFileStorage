@@ -19,7 +19,7 @@ from database.db import (
     add_user, set_post_channel, set_index_db_channel, get_index_db_channel,
     get_posts_for_backup, delete_posts_from_channel, add_backup_channel,
     get_backup_channels, remove_backup_channel, get_post_channels, 
-    set_user_log_channel, remove_user_log_channel,
+    set_user_log_channel, remove_user_log_channel, get_user_log_channel
 )
 from util.logger import send_client_config_log
 from utils.helpers import go_back_button, get_main_menu, create_post, clean_and_parse_filename, calculate_title_similarity, notify_and_remove_invalid_channel, format_bytes, PHOTO_CAPTION_LIMIT, TEXT_MESSAGE_LIMIT
