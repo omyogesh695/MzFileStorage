@@ -1,4 +1,4 @@
-# widhvans/store/widhvans-store-9eccd1e4991c3966a09275ea218d1ea1248ed0fe/handlers/admin.py
+# handlers/admin.py
 import logging
 import asyncio
 from pyrogram import Client, filters
