@@ -20,7 +20,8 @@ def generate_search_queries(title: str):
 async def _find_poster_from_imdb(query: str):
     """Internal function to get the best-guess poster from IMDb for a single query."""
     try:
-        search_url = f"https://www.imdb.com/find?q={re.sub(r'\s+', '+', query)}"
+        clean_query = re.sub(r'\s+', '+', query)
+        search_url = f"https://www.imdb.com/find?q={clean_query}"
         headers = {'User-Agent': 'Mozilla/5.0', 'Accept-Language': 'en-US,en;q=0.5'}
         async with aiohttp.ClientSession(headers=headers) as session:
             async with session.get(search_url, timeout=10) as resp:
