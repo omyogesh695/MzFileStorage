@@ -221,6 +221,7 @@ async def manage_channels_submenu_handler(client, query):
     buttons = [
         [InlineKeyboardButton("➕ Manage Auto Post Channels", callback_data="manage_post_ch")],
         [InlineKeyboardButton("🗃️ Manage Database Channel", callback_data="manage_db_ch")],
+        [InlineKeyboardButton("🪵 Manage Log Channel", callback_data="log_channel_menu")],
         [go_back_button(query.from_user.id).inline_keyboard[0][0]]
     ]
     markup = InlineKeyboardMarkup(buttons)
@@ -1144,29 +1145,30 @@ async def set_shortener_logic(client, query):
             try: await api_msg.delete()
             except: pass
 # ================================================================= #
-# 📜 PERSONAL LOG CHANNEL SETTINGS HANDLERS
+# 📜 PERSONAL LOG CHANNEL SETTINGS HANDLERS (ENGLISH)
 # ================================================================= #
 
 async def get_log_channel_menu_parts(client, user_id):
     current_log = await get_user_log_channel(user_id)
     
-    text = "**📜 Personal Log Channel Settings**\n\n"
+    text = "**🪵 Personal Log Channel Settings**\n\n"
     if current_log:
         try:
             chat = await client.get_chat(current_log)
-            text += f"Current Log Channel: **{chat.title}** (`{current_log}`)\n\n"
+            text += f"**Current Log Channel:** `{chat.title}` (`{current_log}`)\n\n"
         except Exception:
-            text += f"Current Log Channel ID: `{current_log}`\n\n"
-        text += "Status: Connected 🟢\nAapki links ki verification activity is channel me aayegi."
+            text += f"**Current Log Channel ID:** `{current_log}`\n\n"
+        text += "**Status:** `Connected 🟢`\nAll verification and activity logs will be sent to this channel."
     else:
-        text += "Status: Not Set 🔴\n\nAapne abhi tak koi Log Channel set nahi kiya hai."
+        text += "**Status:** `Not Set 🔴`\n\nYou have not connected any log channel yet."
 
     buttons = [
         [InlineKeyboardButton("✏️ Set / Change Log Channel", callback_data="set_log_channel")],
     ]
     if current_log:
         buttons.append([InlineKeyboardButton("🗑️ Remove Log Channel", callback_data="remove_log_channel")])
-    buttons.append([go_back_button(user_id).inline_keyboard[0][0]])
+        
+    buttons.append([InlineKeyboardButton("« Go Back", callback_data="manage_channels_menu")])
     return text, InlineKeyboardMarkup(buttons)
 
 
@@ -1180,7 +1182,7 @@ async def log_channel_menu_handler(client, query):
 @Client.on_callback_query(filters.regex("^remove_log_channel$"))
 async def remove_log_channel_handler(client, query):
     user_id = query.from_user.id
-    await remove_user_log_channel(user_id)
+    await set_user_log_channel(user_id, None)
     await query.answer("✅ Log Channel removed successfully.", show_alert=True)
     text, markup = await get_log_channel_menu_parts(client, user_id)
     await safe_edit_message(query, text=text, reply_markup=markup)
@@ -1199,16 +1201,16 @@ async def set_log_channel_logic(client, query):
 
     try:
         prompt_msg = await query.message.edit_text(
-            "📜 **Set Log Channel**\n\n"
-            "1. Apne channel me is Bot ko **Admin** banayein (`Post Messages` permission ke sath).\n"
-            "2. Apne target channel se koi message yahan **Forward** karein.",
-            reply_markup=go_back_button(user_id)
+            "**🪵 Set Log Channel**\n\n"
+            "1. Add me as an **Admin** in your target channel (with `Post Messages` permission).\n"
+            "2. **Forward** any message from that channel here.",
+            reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« Go Back", callback_data="manage_channels_menu")]])
         )
         
         response = await client.listen(chat_id=user_id, timeout=300, filters=filters.forwarded)
 
         if not response.forward_from_chat:
-            await safe_edit_message(prompt_msg, "❌ Yeh valid channel forward nahi hai. Operation cancelled.", reply_markup=go_back_button(user_id))
+            await safe_edit_message(prompt_msg, "❌ Invalid forwarded message. Setup cancelled.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« Go Back", callback_data="manage_channels_menu")]]))
             return
 
         channel_id = response.forward_from_chat.id
@@ -1221,19 +1223,19 @@ async def set_log_channel_logic(client, query):
             if not member.privileges or not member.privileges.can_post_messages:
                 raise ChatAdminRequired
         except (ChatAdminRequired, ChannelPrivate, UserNotParticipant) as e:
-            logger.error(f"Log channel permission failed: {e}")
+            logger.error(f"Log channel permission check failed: {e}")
             await safe_edit_message(
                 prompt_msg,
                 "❌ **Permission Denied!**\n\n"
-                "Pehle bot ko channel me Admin banayein aur **Post Messages** ki permission dein, phir dobara try karein.",
-                reply_markup=go_back_button(user_id)
+                "Please make sure I am an administrator with permission to **post messages** in that channel, then try again.",
+                reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« Go Back", callback_data="manage_channels_menu")]])
             )
             return
 
-        # 1. User DB me save karein
+        # 1. Save in User Database
         await set_user_log_channel(user_id, channel_id)
 
-        # 2. Confirmation post user ke log channel me
+        # 2. Confirmation post to User's Log Channel
         try:
             await client.send_message(
                 channel_id,
@@ -1242,9 +1244,12 @@ async def set_log_channel_logic(client, query):
         except Exception:
             pass
 
-        # 3. Master Log alert trigger karein
-        chat_info = await client.get_chat(channel_id)
-        await send_client_config_log(client, query.from_user, chat_info)
+        # 3. Master Log Alert Trigger
+        try:
+            chat_info = await client.get_chat(channel_id)
+            await send_client_config_log(client, query.from_user, chat_info)
+        except Exception as e:
+            logger.error(f"Master log error: {e}")
 
         await safe_edit_message(prompt_msg, f"✅ **Success!** Connected to **{response.forward_from_chat.title}** as your Log Channel.")
         await asyncio.sleep(2)
@@ -1254,15 +1259,16 @@ async def set_log_channel_logic(client, query):
 
     except ListenerTimeout:
         if prompt_msg:
-            await safe_edit_message(prompt_msg, text="❗️ **Timeout:** Setup cancelled.", reply_markup=go_back_button(user_id))
+            await safe_edit_message(prompt_msg, text="❗️ **Timeout:** Operation cancelled.", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« Go Back", callback_data="manage_channels_menu")]]))
     except Exception as e:
         logger.exception("Error in set_log_channel_logic")
         if prompt_msg:
-            await safe_edit_message(prompt_msg, text=f"An error occurred: {e}", reply_markup=go_back_button(user_id))
+            await safe_edit_message(prompt_msg, text=f"An error occurred: {e}", reply_markup=InlineKeyboardMarkup([[InlineKeyboardButton("« Go Back", callback_data="manage_channels_menu")]]))
     finally:
         if response:
             try:
                 await response.delete()
             except Exception:
                 pass
+                
             
