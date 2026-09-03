@@ -129,7 +129,7 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
     found_resolution = res_match.group(1).lower() if res_match else ""
 
     # 5. Extract Languages Directly from Original Raw Filename
-    raw_lower = original_name.lower()
+    raw_lower = re.sub(r'[\._\-\(\)\[\]\{\}:]', ' ', original_name.lower())
     detected_languages = []
     
     lang_checks = [
