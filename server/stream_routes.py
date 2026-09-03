@@ -328,7 +328,7 @@ async def api_v5_confirm_handler(request):
         elapsed = int(time.time()) - ts
 
         # Real shortener time: 15s to 360s (6 minutes)
-        if elapsed < 15 or elapsed > 360:
+        if elapsed < 35 or elapsed > 360:
             return web.json_response({"status": "error", "message": "Time verification failed"}, status=403)
 
         secret_key = getattr(Config, "SECRET_KEY", "mz_super_secret_anti_bypass_key_2026")
