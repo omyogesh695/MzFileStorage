@@ -117,26 +117,53 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
             clean_base = re.sub(sp, ' ', clean_base, flags=re.IGNORECASE)
             break
 
-    # 3. Universal Part Detection (part001, part 1, pt2, cd1, disc2, 1of2)
+    # 3. Universal Part Detection (Safe from Movie Titles like 'Brahmastra Part 1')
     part_info_str = ""
     part_num = None
 
-    # Style A: part, pt, cd, disc, disk (e.g., part001, Part-1, CD2, Disc 1)
-    match_std = re.search(r'(?:[\s._\-\(\[\{]|^)(?:part|pt|cd|disc|disk)[\s._\-]*0*([1-9]\d{0,2})(?:[\s._\-\)\]\}]|$)', original_name, re.IGNORECASE)
-    
-    # Style B: 1of2, 2of2, 1 of 2
-    match_of = re.search(r'(?:[\s._\-\(\[\{]|^)0*([1-9]\d?)\s*(?:of|_of_)\s*\d+(?:[\s._\-\)\]\}]|$)', original_name, re.IGNORECASE)
+    # Check movie year in clean_base
+    year_match = re.search(r'\b(19\d{2}|20\d{2})\b', clean_base)
+    if year_match:
+        # Year mil gaya toh Part sirf Year ke baad dhoondo taaki Title ka Part safe rahe
+        target_str = original_name[year_match.end():]
+    else:
+        # Year nahi hai toh full filename me dhoondo
+        target_str = original_name
 
-    if match_std:
-        part_num = int(match_std.group(1))
-    elif match_of:
-        part_num = int(match_of.group(1))
+    s_raw = re.sub(r'[\._\-\(\)\[\]\{\}:]', ' ', target_str.lower())
+
+    # Case 1: part001, part 1, pt2, cd01, disc2, vol1
+    m_std = re.search(r'\b(?:part|pt|cd|disc|disk|vol|volume)\s*0*([1-9]\d*)\b', s_raw)
+    # Case 2: 1of2, 2 of 2
+    m_of = re.search(r'\b(?:part|pt|cd)?\s*0*([1-9]\d*)\s*(?:of|_of_)\s*\d+\b', s_raw)
+    # Case 3: Roman (Part I, Part II)
+    m_roman = re.search(r'\b(?:part|pt|cd|disc|disk)\s+(i|ii|iii|iv|v|vi)\b', s_raw)
+    # Case 4: Words (Part One, Part Two)
+    m_word = re.search(r'\b(?:part|pt|cd)\s+(one|two|three|four|five)\b', s_raw)
+
+    if m_std:
+        part_num = int(m_std.group(1))
+    elif m_of:
+        part_num = int(m_of.group(1))
+    elif m_roman:
+        part_num = {'i': 1, 'ii': 2, 'iii': 3, 'iv': 4, 'v': 5, 'vi': 6}.get(m_roman.group(1))
+    elif m_word:
+        part_num = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5}.get(m_word.group(1))
 
     if part_num:
         part_info_str = f"Part {part_num:02d}"
-        # clean_base se part tag safely clean karein
-        clean_base = re.sub(r'(?:part|pt|cd|disc|disk)[\s._\-]*0*\d{1,3}', ' ', clean_base, flags=re.IGNORECASE)
-        clean_base = re.sub(r'\b\d{1,2}\s*(?:of|_of_)\s*\d+\b', ' ', clean_base, flags=re.IGNORECASE)
+        if year_match:
+            # Sirf year ke baad wale hisse se part tag clean karein taaki title intact rahe
+            clean_pre = clean_base[:year_match.end()]
+            clean_post = clean_base[year_match.end():]
+            clean_post = re.sub(r'\b(?:part|pt|cd|disc|disk|vol|volume)\s*0*\d+\b', ' ', clean_post, flags=re.IGNORECASE)
+            clean_post = re.sub(r'\b\d+\s*of\s*\d+\b', ' ', clean_post, flags=re.IGNORECASE)
+            clean_post = re.sub(r'\b(?:part|pt|cd|disc|disk)\s+(i|ii|iii|iv|v|vi|one|two|three|four|five)\b', ' ', clean_post, flags=re.IGNORECASE)
+            clean_base = clean_pre + clean_post
+        else:
+            clean_base = re.sub(r'\b(?:part|pt|cd|disc|disk|vol|volume)\s*0*\d+\b', ' ', clean_base, flags=re.IGNORECASE)
+            clean_base = re.sub(r'\b\d+\s*of\s*\d+\b', ' ', clean_base, flags=re.IGNORECASE)
+            clean_base = re.sub(r'\b(?:part|pt|cd|disc|disk)\s+(i|ii|iii|iv|v|vi|one|two|three|four|five)\b', ' ', clean_base, flags=re.IGNORECASE)
 
     # 4. Extract Resolution
     res_match = re.search(r'\b(2160p|4k|1080p|720p|576p|540p|480p|360p|240p)\b', clean_base, re.IGNORECASE)
