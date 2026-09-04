@@ -66,7 +66,7 @@ def simple_clean_filename(name: str) -> str:
     return clean_name
 
 def go_back_button(user_id):
-    return InlineKeyboardMarkup([[InlineKeyboardButton("« Go Back", callbackdata=f"go_back_{user_id}")]])
+    return InlineKeyboardMarkup([[InlineKeyboardButton("« Go Back", callback_data=f"go_back_{user_id}")]])
 
 def format_bytes(size):
     if not isinstance(size, (int, float)) or size == 0:
