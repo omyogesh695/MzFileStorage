@@ -117,12 +117,26 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
             clean_base = re.sub(sp, ' ', clean_base, flags=re.IGNORECASE)
             break
 
-    # 3. Detect Part Number (e.g. part001, part02, pt1, cd1)
+    # 3. Universal Part Detection (part001, part 1, pt2, cd1, disc2, 1of2)
     part_info_str = ""
-    part_match = re.search(r'\b(?:part|pt|cd)[\s._-]*0*([1-9]\d*)\b', clean_base, re.IGNORECASE)
-    if part_match:
-        part_info_str = f"Part {int(part_match.group(1)):02d}"
-        clean_base = re.sub(r'\b(?:part|pt|cd)[\s._-]*0*[1-9]\d*\b', ' ', clean_base, flags=re.IGNORECASE)
+    part_num = None
+
+    # Style A: part, pt, cd, disc, disk (e.g., part001, Part-1, CD2, Disc 1)
+    match_std = re.search(r'(?:[\s._\-\(\[\{]|^)(?:part|pt|cd|disc|disk)[\s._\-]*0*([1-9]\d{0,2})(?:[\s._\-\)\]\}]|$)', original_name, re.IGNORECASE)
+    
+    # Style B: 1of2, 2of2, 1 of 2
+    match_of = re.search(r'(?:[\s._\-\(\[\{]|^)0*([1-9]\d?)\s*(?:of|_of_)\s*\d+(?:[\s._\-\)\]\}]|$)', original_name, re.IGNORECASE)
+
+    if match_std:
+        part_num = int(match_std.group(1))
+    elif match_of:
+        part_num = int(match_of.group(1))
+
+    if part_num:
+        part_info_str = f"Part {part_num:02d}"
+        # clean_base se part tag safely clean karein
+        clean_base = re.sub(r'(?:part|pt|cd|disc|disk)[\s._\-]*0*\d{1,3}', ' ', clean_base, flags=re.IGNORECASE)
+        clean_base = re.sub(r'\b\d{1,2}\s*(?:of|_of_)\s*\d+\b', ' ', clean_base, flags=re.IGNORECASE)
 
     # 4. Extract Resolution
     res_match = re.search(r'\b(2160p|4k|1080p|720p|576p|540p|480p|360p|240p)\b', clean_base, re.IGNORECASE)
