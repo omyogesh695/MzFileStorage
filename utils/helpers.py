@@ -354,71 +354,90 @@ async def create_post(client, user_id, messages, cache: dict):
     
     CAPTION_LIMIT = PHOTO_CAPTION_LIMIT if post_poster else TEXT_MESSAGE_LIMIT
     
-    all_link_entries = []
+    # --- Metadata Tags Builder (Quality • Codec • Part • Audio) ---
+    formatted_items = []
+    bot_username = client.me.username if hasattr(client, "me") and client.me else "MzFileStorageBot"
+
     for info in media_info_list:
         display_tags_parts = []
         
-        # 1. Quality / Resolution (1080p, 720p)
+        # 1. Episode Details ({E01-04}, {E01})
+        if info.get('episode_info'):
+            display_tags_parts.append(f"{{{info['episode_info']}}}")
+
+        # 2. Quality / Resolution (1080p, 720p)
         if info.get('quality_tags'):
             display_tags_parts.append(info['quality_tags'])
 
-        # 2. Source / Rip Type (WEB-DL, WEBRip, BluRay)
+        # 3. Source / Rip Type (WEB-DL, BluRay)
         if info.get('source_tag'):
             display_tags_parts.append(info['source_tag'])
 
-        # 3. Part Details (Part 01, Part 02)
+        # 4. Part Details ([Part 01], [Part 02])
         if info.get('part_info'):
-            display_tags_parts.append(info['part_info'])
-
-        # 4. Episode Details (E01, E01-04)
-        if info.get('episode_info'):
-            display_tags_parts.append(info['episode_info'])
+            display_tags_parts.append(f"[{info['part_info']}]")
         
-        # 5. Audio Languages (Hindi, English)
+        # 5. Audio Languages ([Hindi + English])
         languages = info.get('languages', [])
         if languages:
-            display_tags_parts.append(" + ".join(languages))
+            display_tags_parts.append(f"[{' + '.join(languages)}]")
         
-        display_tags = " | ".join(filter(None, display_tags_parts))
-        
-        bot_username = client.me.username if hasattr(client, "me") and client.me else "MzFileStorageBot"
+        meta_str = " • ".join(filter(None, display_tags_parts)) or "File"
         link = f"https://t.me/{bot_username}?start=get_{user_id}_{info['file_unique_id']}"
-
         file_size_str = format_bytes(info['file_size'])
-        all_link_entries.append(f"├─📁 {display_tags or 'File'}\n│  ╰─➤ [Click Here]({link}) ({file_size_str})")
 
-    final_posts, current_links_part = [], []
-    
-    # Clean Box Formatting (Prevents Broken Footer Line on Mobile)
-    clean_box_title = re.sub(r'[\(\[\{]\s*[\(\[\{]', '(', primary_display_title)
-    clean_box_title = re.sub(r'[\)\]\}]\s*[\)\]\}]', ')', clean_box_title).strip()
-    
-    base_caption_header = f"╭─🎬 **{clean_box_title}** ─╮\n│"
-    footer_line = "╰───────────────────╯"
+        formatted_items.append({
+            "meta": meta_str,
+            "link": link,
+            "size": file_size_str
+        })
 
-    base_caption = base_caption_header
-    current_length = len(base_caption) + len(footer_line)
-
-    for entry in all_link_entries:
-        if current_length + len(entry) + 2 > CAPTION_LIMIT and current_links_part:
-            final_caption = f"{base_caption}\n\n" + "\n\n".join(current_links_part) + f"\n\n{footer_line}"
-            final_posts.append((post_poster if not final_posts else None, final_caption, footer_keyboard))
-            current_links_part = [entry]
-            current_length = len(base_caption) + len(footer_line) + len(entry) + 2
-        else:
-            current_links_part.append(entry)
-            current_length += len(entry) + 2
+    # Helper function to render branch tree cleanly
+    def render_tree_block(items_chunk, title_header):
+        lines = [title_header, ""]
+        total = len(items_chunk)
+        for idx, item in enumerate(items_chunk):
+            is_last = (idx == total - 1)
+            branch = "└" if is_last else "├"
+            pipe = "  " if is_last else "│ "
             
-    if current_links_part:
-        final_caption = f"{base_caption}\n\n" + "\n\n".join(current_links_part) + f"\n\n{footer_line}"
-        final_posts.append((post_poster if not final_posts else None, final_caption, footer_keyboard))
+            lines.append(f"{branch} 📁 {item['meta']}")
+            lines.append(f"{pipe} └─➤ [Click Here ({item['size']})]({item['link']})")
+            if not is_last:
+                lines.append("│")
+        return "\n".join(lines)
+
+    # Clean Header
+    clean_title = re.sub(r'[\(\[\{]\s*[\(\[\{]', '(', primary_display_title)
+    clean_title = re.sub(r'[\)\]\}]\s*[\)\]\}]', ')', clean_title).strip()
+    base_header = f"┌ 🎬 **{clean_title}** ┐"
+
+    final_posts = []
+    current_chunk = []
+
+    for item in formatted_items:
+        test_chunk = current_chunk + [item]
+        test_caption = render_tree_block(test_chunk, base_header)
         
+        # Check Telegram caption limit (1024 characters for photos)
+        if len(test_caption) > CAPTION_LIMIT and current_chunk:
+            caption_text = render_tree_block(current_chunk, base_header)
+            final_posts.append((post_poster if not final_posts else None, caption_text, footer_keyboard))
+            current_chunk = [item]
+        else:
+            current_chunk = test_chunk
+
+    if current_chunk:
+        caption_text = render_tree_block(current_chunk, base_header)
+        final_posts.append((post_poster if not final_posts else None, caption_text, footer_keyboard))
+
+    # Multi-post header naming if split occurs
     if len(final_posts) > 1:
         for i, (poster, cap, foot) in enumerate(final_posts):
-            new_header = f"╭─🎬 **{clean_box_title} (Part {i+1}/{len(final_posts)})** ─╮\n│"
-            new_cap = cap.replace(base_caption_header, new_header)
+            part_header = f"┌ 🎬 **{clean_title} (Part {i+1}/{len(final_posts)})** ┐"
+            new_cap = cap.replace(base_header, part_header)
             final_posts[i] = (poster, new_cap, foot)
-            
+
     return final_posts
 
 def calculate_title_similarity(title1: str, title2: str) -> float:
