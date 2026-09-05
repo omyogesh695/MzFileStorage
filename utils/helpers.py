@@ -402,7 +402,7 @@ async def create_post(client, user_id, messages, cache: dict):
             pipe = "  " if is_last else "│ "
             
             lines.append(f"{branch} 📁 {item['meta']}")
-            lines.append(f"{pipe} └─➤ [Click Here ({item['size']})]({item['link']})")
+            lines.append(f"{pipe} └─➤ [Click Here]({item['link']}) ({item['size']})")
             if not is_last:
                 lines.append("│")
         return "\n".join(lines)
