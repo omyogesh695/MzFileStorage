@@ -399,7 +399,7 @@ async def create_post(client, user_id, messages, cache: dict):
         for idx, item in enumerate(items_chunk):
             is_last = (idx == total - 1)
             branch = "└" if is_last else "├"
-            pipe = "  " if is_last else "│ "
+            pipe = "  " if is_last else "│  "
             
             lines.append(f"{branch} 📁 {item['meta']}")
             lines.append(f"{pipe} └─➤ [Click Here]({item['link']}) ({item['size']})")
@@ -410,7 +410,7 @@ async def create_post(client, user_id, messages, cache: dict):
     # Clean Header
     clean_title = re.sub(r'[\(\[\{]\s*[\(\[\{]', '(', primary_display_title)
     clean_title = re.sub(r'[\)\]\}]\s*[\)\]\}]', ')', clean_title).strip()
-    base_header = f"┌ 🎬 **{clean_title}** ┐"
+    base_header = f"┌ 🎬 **{clean_title}**"
 
     final_posts = []
     current_chunk = []
@@ -434,7 +434,7 @@ async def create_post(client, user_id, messages, cache: dict):
     # Multi-post header naming if split occurs
     if len(final_posts) > 1:
         for i, (poster, cap, foot) in enumerate(final_posts):
-            part_header = f"┌ 🎬 **{clean_title} (Part {i+1}/{len(final_posts)})** ┐"
+            part_header = f"┌ 🎬 **{clean_title} (Part {i+1}/{len(final_posts)})**"
             new_cap = cap.replace(base_header, part_header)
             final_posts[i] = (poster, new_cap, foot)
 
