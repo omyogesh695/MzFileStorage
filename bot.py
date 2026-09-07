@@ -478,16 +478,6 @@ class Bot(Client):
     async def start(self):
         await super().start()
         self.me = await self.get_me()
-
-        # ========================================================
-        # 🔑 KOYEB LOGS MEIN SESSION STRING PRINT KARNE KE LIYE
-        # ========================================================
-        try:
-            bot_session = await self.export_session_string()
-            print(f"\n\n{'='*20} COPY SESSION STRING BELOW {'='*20}\n{bot_session}\n{'='*60}\n\n", flush=True)
-        except Exception as e:
-            logger.error(f"Failed to export session string: {e}")
-        # ========================================================
         
         if self.owner_db_channel:
             try:
@@ -505,7 +495,7 @@ class Bot(Client):
         asyncio.create_task(self.connection_health_check())
         asyncio.create_task(self.daily_stats_notifier())
 
-        # --- YAHAN ADD KIYA GAYA HAI ---
+        # --- LOG CHANNEL RESTART ALERT ---
         log_channel = getattr(Config, "LOG_CHANNEL", None)
         if log_channel:
             try:
@@ -526,13 +516,14 @@ class Bot(Client):
                 logger.info(f"Restart notification sent to LOG_CHANNEL: {log_channel}")
             except Exception as e:
                 logger.error(f"Failed to send restart alert to LOG_CHANNEL: {e}")
-        # -------------------------------
+        # ---------------------------------
 
         logger.info(f"Bot @{self.me.username} started successfully with direct processing architecture.")
 
     async def stop(self, *args):
         logger.info("Stopping bot...")
-        if self.web_runner: await self.web_runner.cleanup()
+        if self.web_runner: 
+            await self.web_runner.cleanup()
         await super().stop()
         logger.info("Bot stopped.")
 
