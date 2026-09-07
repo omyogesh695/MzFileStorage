@@ -499,20 +499,27 @@ class Bot(Client):
     async def start(self):
         await super().start()
         self.me = await self.get_me()
+
+        # Dialogs warm-up: Isse channel access hash Telegram se fetch ho jata hai
+        try:
+            logger.info("Syncing Telegram dialogs cache...")
+            async for _ in self.get_dialogs(limit=30):
+                pass
+            logger.info("Dialogs sync complete.")
+        except Exception as e:
+            logger.warning(f"Dialog sync skipped: {e}")
         
-        # 1. Resolve Owner DB Channel (with get_chat first)
+        # 1. Resolve Owner DB Channel
         if self.owner_db_channel:
             try:
                 db_id = int(self.owner_db_channel)
-                # Pehle channel fetch karke peer cache karwayein
                 await self.get_chat(db_id)
                 logger.info(f"Initial health check for Owner DB [{db_id}]...")
                 await self.send_message(db_id, f"✅ **Bot Online & Connected**\n\n@{self.me.username} has started successfully.")
                 self.is_healthy.set()
             except Exception as e:
                 logger.error(f"FATAL: Could not verify Owner DB Channel on startup. Error: {e}")
-                # Startup block na ho isliye health monitor verify karega
-                self.is_healthy.set()
+                self.is_healthy.clear()
         else:
             logger.warning("Owner DB ID not set. Critical functionalities will fail.")
         
@@ -526,7 +533,6 @@ class Bot(Client):
         if log_channel:
             try:
                 log_id = int(log_channel)
-                # Channel access hash fetch karein
                 await self.get_chat(log_id)
 
                 now_str = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
