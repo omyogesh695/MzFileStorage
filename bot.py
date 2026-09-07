@@ -563,24 +563,42 @@ class Bot(Client):
         await super().stop()
         logger.info("Bot stopped.")
         
-@Client.on_message(filters.channel)
-async def catch_channel_peer(client, message):
-    """Channel me message aate hi access hash save karega aur Mongo me sync karega"""
-    chat_id = message.chat.id
-    logger.info(f"⚡ Channel event captured from {message.chat.title} [{chat_id}]! Saving peer cache...")
+@Client.on_message(filters.command("sync") & filters.private)
+async def manual_sync_handler(client, message):
+    """Admin bot ko private me /sync bhejega to ye channels ko register karke Mongo me save karega"""
+    if message.from_user.id != int(Config.ADMIN_ID):
+        return
+
+    status_msg = await message.reply_text("⏳ **Syncing private channels...**")
     
-    # Session file ko turant MongoDB me backup karein
+    success_log = []
+    
+    # Target channels to pair
+    channels = [
+        ("Owner DB", getattr(Config, "OWNER_DB_CHANNEL", None)),
+        ("Log Channel", getattr(Config, "LOG_CHANNEL", None))
+    ]
+    
+    for name, ch_id in channels:
+        if not ch_id:
+            continue
+        try:
+            cid = int(ch_id)
+            # Send message to channel to force peer binding
+            sent = await client.send_message(cid, f"🔄 **Sync Triggered for {name}**")
+            success_log.append(f"✅ `{name}` ({cid}): Connected!")
+        except Exception as e:
+            success_log.append(f"❌ `{name}` ({ch_id}): Failed ({e})")
+            
+    # Session ko turant MongoDB me upload karein
     await session_store.save_session()
     
-    # Agar ye Owner DB ya Log channel hai toh confirm reply karein
-    owner_db = getattr(Config, "OWNER_DB_CHANNEL", None)
-    log_ch = getattr(Config, "LOG_CHANNEL", None)
+    # Bot ko healthy mark karein
+    client.is_healthy.set()
     
-    if chat_id in [int(owner_db or 0), int(log_ch or 0)]:
-        try:
-            await message.reply_text("✅ **Bot successfully synced and peer cached!**")
-        except Exception:
-            pass
-            
+    final_text = "**Sync Report:**\n\n" + "\n".join(success_log)
+    final_text += "\n\n💾 **Session cache updated to MongoDB.**"
+    await status_msg.edit_text(final_text)
+
 if __name__ == "__main__":
     Bot().run()
