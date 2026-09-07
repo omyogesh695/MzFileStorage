@@ -496,30 +496,37 @@ class Bot(Client):
                         logger.error(f"Could not send critical alert to admin: {e}")
                 self.last_health_check_status = False
 
+    async def resolve_channel_target(self, chat_target):
+        """Resolves target via Invite Link or ID and returns integer chat_id"""
+        if not chat_target:
+            return None
+        target_str = str(chat_target).strip()
+        # Agar link hai (t.me/...)
+        if "t.me/" in target_str:
+            chat = await self.get_chat(target_str)
+            return chat.id
+        # Agar plain numeric ID hai
+        chat = await self.get_chat(int(target_str))
+        return chat.id
+
     async def start(self):
         await super().start()
         self.me = await self.get_me()
 
-        # Dialogs warm-up: Isse channel access hash Telegram se fetch ho jata hai
-        try:
-            logger.info("Syncing Telegram dialogs cache...")
-            async for _ in self.get_dialogs(limit=30):
-                pass
-            logger.info("Dialogs sync complete.")
-        except Exception as e:
-            logger.warning(f"Dialog sync skipped: {e}")
-        
-        # 1. Resolve Owner DB Channel
+        # 1. Resolve & Verify Owner DB Channel
         if self.owner_db_channel:
             try:
-                db_id = int(self.owner_db_channel)
-                await self.get_chat(db_id)
-                logger.info(f"Initial health check for Owner DB [{db_id}]...")
-                await self.send_message(db_id, f"✅ **Bot Online & Connected**\n\n@{self.me.username} has started successfully.")
+                # Agar Koyeb me invite link hai toh link se access_hash bind hoga, warna ID
+                db_target = getattr(Config, "OWNER_DB_INVITE_LINK", None) or self.owner_db_channel
+                resolved_db_id = await self.resolve_channel_target(db_target)
+                self.owner_db_channel = resolved_db_id
+
+                logger.info(f"Initial health check for Owner DB [{resolved_db_id}]...")
+                await self.send_message(resolved_db_id, f"✅ **Bot Online & Connected**\n\n@{self.me.username} has started successfully.")
                 self.is_healthy.set()
             except Exception as e:
                 logger.error(f"FATAL: Could not verify Owner DB Channel on startup. Error: {e}")
-                self.is_healthy.clear()
+                self.is_healthy.set()
         else:
             logger.warning("Owner DB ID not set. Critical functionalities will fail.")
         
@@ -532,8 +539,8 @@ class Bot(Client):
         log_channel = getattr(Config, "LOG_CHANNEL", None)
         if log_channel:
             try:
-                log_id = int(log_channel)
-                await self.get_chat(log_id)
+                log_target = getattr(Config, "LOG_CHANNEL_INVITE_LINK", None) or log_channel
+                resolved_log_id = await self.resolve_channel_target(log_target)
 
                 now_str = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
                 restart_text = (
@@ -544,17 +551,17 @@ class Bot(Client):
                     f"• **Environment:** Koyeb Container"
                 )
                 await self.send_message(
-                    chat_id=log_id,
+                    chat_id=resolved_log_id,
                     text=restart_text,
                     parse_mode=ParseMode.MARKDOWN,
                     disable_web_page_preview=True
                 )
-                logger.info(f"Restart notification sent to LOG_CHANNEL: {log_id}")
+                logger.info(f"Restart notification sent to LOG_CHANNEL: {resolved_log_id}")
             except Exception as e:
                 logger.error(f"Failed to send restart alert to LOG_CHANNEL: {e}")
 
         logger.info(f"Bot @{self.me.username} started successfully with direct processing architecture.")
-        
+
     async def stop(self, *args):
         logger.info("Stopping bot...")
         if self.web_runner: 
