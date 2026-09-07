@@ -35,17 +35,21 @@ BATCH_SIZE_LIMIT = 50
 
 class Bot(Client):
     def __init__(self):
-        session_str = getattr(Config, "SESSION_STRING", None)
+        # Force check environment variable directly
+        session_str = os.environ.get("SESSION_STRING") or getattr(Config, "SESSION_STRING", None)
+        
         if session_str:
+            logger.info(">>> INITIALIZING WITH PERSISTENT SESSION_STRING <<<")
             super().__init__(
                 name="FinalStorageBot",
-                session_string=session_str,
+                session_string=session_str.strip(),
                 api_id=Config.API_ID,
                 api_hash=Config.API_HASH,
                 bot_token=Config.BOT_TOKEN,
                 plugins=dict(root="handlers")
             )
         else:
+            logger.warning(">>> NO SESSION_STRING FOUND! USING EPHEMERAL SESSION <<<")
             super().__init__(
                 name="FinalStorageBot",
                 api_id=Config.API_ID,
@@ -75,10 +79,9 @@ class Bot(Client):
         self.flood_wait_duration = 0
         self.shortener_fail_cache = {}
 
-        # --- DECREED MODIFICATION: Use APP_URL ---
         self.app_url = Config.APP_URL.rstrip('/')
         if not self.app_url:
-            logger.critical("FATAL: APP_URL environment variable is not set! All stream/download links will be broken.")
+            logger.critical("FATAL: APP_URL environment variable is not set!")
 
         self.is_healthy = asyncio.Event()
         self.is_healthy.set()
@@ -497,14 +500,19 @@ class Bot(Client):
         await super().start()
         self.me = await self.get_me()
         
+        # 1. Resolve Owner DB Channel (with get_chat first)
         if self.owner_db_channel:
             try:
-                logger.info(f"Initial health check for Owner DB [{self.owner_db_channel}]...")
-                await self.send_message(self.owner_db_channel, f"✅ **Bot Online & Connected**\n\n@{self.me.username} has started successfully.")
+                db_id = int(self.owner_db_channel)
+                # Pehle channel fetch karke peer cache karwayein
+                await self.get_chat(db_id)
+                logger.info(f"Initial health check for Owner DB [{db_id}]...")
+                await self.send_message(db_id, f"✅ **Bot Online & Connected**\n\n@{self.me.username} has started successfully.")
                 self.is_healthy.set()
             except Exception as e:
                 logger.error(f"FATAL: Could not verify Owner DB Channel on startup. Error: {e}")
-                self.is_healthy.clear()
+                # Startup block na ho isliye health monitor verify karega
+                self.is_healthy.set()
         else:
             logger.warning("Owner DB ID not set. Critical functionalities will fail.")
         
@@ -513,10 +521,14 @@ class Bot(Client):
         asyncio.create_task(self.connection_health_check())
         asyncio.create_task(self.daily_stats_notifier())
 
-        # --- LOG CHANNEL RESTART ALERT ---
+        # 2. Resolve & Send Log Channel Alert
         log_channel = getattr(Config, "LOG_CHANNEL", None)
         if log_channel:
             try:
+                log_id = int(log_channel)
+                # Channel access hash fetch karein
+                await self.get_chat(log_id)
+
                 now_str = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
                 restart_text = (
                     "🚀 **#BotRestarted Successfully**\n\n"
@@ -526,18 +538,17 @@ class Bot(Client):
                     f"• **Environment:** Koyeb Container"
                 )
                 await self.send_message(
-                    chat_id=int(log_channel),
+                    chat_id=log_id,
                     text=restart_text,
                     parse_mode=ParseMode.MARKDOWN,
                     disable_web_page_preview=True
                 )
-                logger.info(f"Restart notification sent to LOG_CHANNEL: {log_channel}")
+                logger.info(f"Restart notification sent to LOG_CHANNEL: {log_id}")
             except Exception as e:
                 logger.error(f"Failed to send restart alert to LOG_CHANNEL: {e}")
-        # ---------------------------------
 
         logger.info(f"Bot @{self.me.username} started successfully with direct processing architecture.")
-
+        
     async def stop(self, *args):
         logger.info("Stopping bot...")
         if self.web_runner: 
