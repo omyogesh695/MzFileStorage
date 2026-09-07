@@ -475,18 +475,10 @@ class Bot(Client):
                         logger.error(f"Could not send critical alert to admin: {e}")
                 self.last_health_check_status = False
 
-    async def start(self):
+        async def start(self):
         await super().start()
         self.me = await self.get_me()
         
-        # --- LEGENDARY FIX: Removed invalid session hydration for bots ---
-        # This block caused the BOT_METHOD_INVALID error and is not needed.
-        # logger.info("Hydrating session...")
-        # try:
-        #     async for _ in self.get_dialogs(): pass
-        #     logger.info("Session hydration complete.")
-        # except Exception as e: logger.error(f"Could not hydrate session: {e}")
-
         if self.owner_db_channel:
             try:
                 logger.info(f"Initial health check for Owner DB [{self.owner_db_channel}]...")
@@ -502,8 +494,31 @@ class Bot(Client):
         asyncio.create_task(self.daily_restart_handler())
         asyncio.create_task(self.connection_health_check())
         asyncio.create_task(self.daily_stats_notifier())
-        logger.info(f"Bot @{self.me.username} started successfully with direct processing architecture.")
 
+        # --- YAHAN ADD KIYA GAYA HAI ---
+        log_channel = getattr(Config, "LOG_CHANNEL", None)
+        if log_channel:
+            try:
+                now_str = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
+                restart_text = (
+                    "🚀 **#BotRestarted Successfully**\n\n"
+                    f"• **Bot:** @{self.me.username}\n"
+                    f"• **Status:** Online & Active\n"
+                    f"• **Time:** `{now_str}`\n"
+                    f"• **Environment:** Koyeb Container"
+                )
+                await self.send_message(
+                    chat_id=int(log_channel),
+                    text=restart_text,
+                    parse_mode=ParseMode.MARKDOWN,
+                    disable_web_page_preview=True
+                )
+                logger.info(f"Restart notification sent to LOG_CHANNEL: {log_channel}")
+            except Exception as e:
+                logger.error(f"Failed to send restart alert to LOG_CHANNEL: {e}")
+        # -------------------------------
+
+        logger.info(f"Bot @{self.me.username} started successfully with direct processing architecture.")
     async def stop(self, *args):
         logger.info("Stopping bot...")
         if self.web_runner: await self.web_runner.cleanup()
