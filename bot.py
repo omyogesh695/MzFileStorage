@@ -563,42 +563,39 @@ class Bot(Client):
         await super().stop()
         logger.info("Bot stopped.")
         
-@Client.on_message(filters.command("sync") & filters.private)
-async def manual_sync_handler(client, message):
-    """Admin bot ko private me /sync bhejega to ye channels ko register karke Mongo me save karega"""
-    if message.from_user.id != int(Config.ADMIN_ID):
+@Client.on_message(filters.private & ~filters.command(["start", "help"]))
+async def forward_channel_sync(client, message):
+    """Channel se message forward karte hi access hash MongoDB me save ho jayega"""
+    forward_chat = message.forward_from_chat
+    
+    if not forward_chat:
+        await message.reply_text("ℹ️ **Channel se koi bhi message yahan FORWARD karein.**")
         return
 
-    status_msg = await message.reply_text("⏳ **Syncing private channels...**")
+    chat_id = forward_chat.id
+    chat_title = forward_chat.title
     
-    success_log = []
+    status_msg = await message.reply_text(f"⏳ **Syncing:** `{chat_title}` (`{chat_id}`)...")
     
-    # Target channels to pair
-    channels = [
-        ("Owner DB", getattr(Config, "OWNER_DB_CHANNEL", None)),
-        ("Log Channel", getattr(Config, "LOG_CHANNEL", None))
-    ]
-    
-    for name, ch_id in channels:
-        if not ch_id:
-            continue
-        try:
-            cid = int(ch_id)
-            # Send message to channel to force peer binding
-            sent = await client.send_message(cid, f"🔄 **Sync Triggered for {name}**")
-            success_log.append(f"✅ `{name}` ({cid}): Connected!")
-        except Exception as e:
-            success_log.append(f"❌ `{name}` ({ch_id}): Failed ({e})")
-            
-    # Session ko turant MongoDB me upload karein
-    await session_store.save_session()
-    
-    # Bot ko healthy mark karein
-    client.is_healthy.set()
-    
-    final_text = "**Sync Report:**\n\n" + "\n".join(success_log)
-    final_text += "\n\n💾 **Session cache updated to MongoDB.**"
-    await status_msg.edit_text(final_text)
+    try:
+        # 1. Forwarded chat se peer instantly resolve ho jata hai
+        await client.get_chat(chat_id)
+        
+        # 2. Test message bhej kar confirm karein
+        await client.send_message(chat_id, f"✅ **Synced successfully via Forward!**")
+        
+        # 3. Session ko turant MongoDB me upload karein
+        await session_store.save_session()
+        client.is_healthy.set()
+        
+        await status_msg.edit_text(
+            f"✅ **Success!**\n\n"
+            f"• **Channel:** `{chat_title}`\n"
+            f"• **ID:** `{chat_id}`\n\n"
+            f"💾 **Access Hash saved to MongoDB permanently.**"
+        )
+    except Exception as e:
+        await status_msg.edit_text(f"❌ **Failed to sync channel:** `{e}`")
 
 if __name__ == "__main__":
     Bot().run()
