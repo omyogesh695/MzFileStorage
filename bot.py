@@ -478,6 +478,16 @@ class Bot(Client):
     async def start(self):
         await super().start()
         self.me = await self.get_me()
+
+        # ========================================================
+        # 🔑 KOYEB LOGS MEIN SESSION STRING PRINT KARNE KE LIYE
+        # ========================================================
+        try:
+            bot_session = await self.export_session_string()
+            print(f"\n\n{'='*20} COPY SESSION STRING BELOW {'='*20}\n{bot_session}\n{'='*60}\n\n", flush=True)
+        except Exception as e:
+            logger.error(f"Failed to export session string: {e}")
+        # ========================================================
         
         if self.owner_db_channel:
             try:
@@ -519,6 +529,7 @@ class Bot(Client):
         # -------------------------------
 
         logger.info(f"Bot @{self.me.username} started successfully with direct processing architecture.")
+
     async def stop(self, *args):
         logger.info("Stopping bot...")
         if self.web_runner: await self.web_runner.cleanup()
