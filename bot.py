@@ -5,6 +5,7 @@ import time
 import re
 import os
 import sys
+from pyrogram import filters
 from database.session_store import SessionStorage
 session_store = SessionStorage()
 from datetime import datetime, time as dt_time, timedelta, UTC
@@ -561,6 +562,25 @@ class Bot(Client):
             await self.web_runner.cleanup()
         await super().stop()
         logger.info("Bot stopped.")
-
+        
+@Client.on_message(filters.channel)
+async def catch_channel_peer(client, message):
+    """Channel me message aate hi access hash save karega aur Mongo me sync karega"""
+    chat_id = message.chat.id
+    logger.info(f"⚡ Channel event captured from {message.chat.title} [{chat_id}]! Saving peer cache...")
+    
+    # Session file ko turant MongoDB me backup karein
+    await session_store.save_session()
+    
+    # Agar ye Owner DB ya Log channel hai toh confirm reply karein
+    owner_db = getattr(Config, "OWNER_DB_CHANNEL", None)
+    log_ch = getattr(Config, "LOG_CHANNEL", None)
+    
+    if chat_id in [int(owner_db or 0), int(log_ch or 0)]:
+        try:
+            await message.reply_text("✅ **Bot successfully synced and peer cached!**")
+        except Exception:
+            pass
+            
 if __name__ == "__main__":
     Bot().run()
