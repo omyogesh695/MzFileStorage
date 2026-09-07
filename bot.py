@@ -475,7 +475,7 @@ class Bot(Client):
                         logger.error(f"Could not send critical alert to admin: {e}")
                 self.last_health_check_status = False
 
-        async def start(self):
+    async def start(self):
         await super().start()
         self.me = await self.get_me()
         
