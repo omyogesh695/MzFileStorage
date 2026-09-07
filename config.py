@@ -7,6 +7,7 @@ class Config:
 
     # Your Bot Token
     BOT_TOKEN = os.environ.get("BOT_TOKEN", "")
+    SESSION_STRING = os.environ.get("SESSION_STRING", "")
 
     # Your Admin User ID
     ADMIN_ID = int(os.environ.get("ADMIN_ID", ""))
