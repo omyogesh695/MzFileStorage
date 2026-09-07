@@ -5,6 +5,8 @@ import time
 import re
 import os
 import sys
+from database.session_store import SessionStorage
+session_store = SessionStorage()
 from datetime import datetime, time as dt_time, timedelta, UTC
 from pyrogram.enums import ParseMode
 from pyrogram.errors import (
@@ -34,33 +36,30 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE_LIMIT = 50
 
 class Bot(Client):
-    def __init__(self):
-        # Force check environment variable directly
-        session_str = os.environ.get("SESSION_STRING") or getattr(Config, "SESSION_STRING", None)
-        
-        if session_str:
-            logger.info(">>> INITIALIZING WITH PERSISTENT SESSION_STRING <<<")
-            super().__init__(
-                name="FinalStorageBot",
-                session_string=session_str.strip(),
-                api_id=Config.API_ID,
-                api_hash=Config.API_HASH,
-                bot_token=Config.BOT_TOKEN,
-                plugins=dict(root="handlers")
-            )
-        else:
-            logger.warning(">>> NO SESSION_STRING FOUND! USING EPHEMERAL SESSION <<<")
-            super().__init__(
-                name="FinalStorageBot",
-                api_id=Config.API_ID,
-                api_hash=Config.API_HASH,
-                bot_token=Config.BOT_TOKEN,
-                plugins=dict(root="handlers")
-            )
+        def __init__(self):
+        # Startup se pehle MongoDB se .session file restore
+        try:
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                asyncio.ensure_future(session_store.restore_session())
+            else:
+                loop.run_until_complete(session_store.restore_session())
+        except Exception as e:
+            logger.error(f"Error during initial session restore: {e}")
+
+        # Direct disk database use karein
+        super().__init__(
+            name="FinalStorageBot",
+            api_id=Config.API_ID,
+            api_hash=Config.API_HASH,
+            bot_token=Config.BOT_TOKEN,
+            plugins=dict(root="handlers")
+        )
 
         self.me = None
         self.web_app = None
         self.web_runner = None
+        # ... baaki properties as it is rahengi ...
 
         self.owner_db_channel = Config.OWNER_DB_CHANNEL
         self.stream_channel_id = None
@@ -509,23 +508,31 @@ class Bot(Client):
         chat = await self.get_chat(int(target_str))
         return chat.id
 
+    async def session_sync_loop(self):
+        """Har 10 minute me .session file ko MongoDB me backup karega"""
+        while True:
+            await asyncio.sleep(600)
+            await session_store.save_session()
+
     async def start(self):
         await super().start()
         self.me = await self.get_me()
 
-        # 1. Resolve & Verify Owner DB Channel
+        # Background MongoDB session sync
+        asyncio.create_task(self.session_sync_loop())
+
+        # 1. Resolve & Verify Owner DB Channel (Direct Private ID)
         if self.owner_db_channel:
             try:
-                # Agar Koyeb me invite link hai toh link se access_hash bind hoga, warna ID
-                db_target = getattr(Config, "OWNER_DB_INVITE_LINK", None) or self.owner_db_channel
-                resolved_db_id = await self.resolve_channel_target(db_target)
-                self.owner_db_channel = resolved_db_id
-
-                logger.info(f"Initial health check for Owner DB [{resolved_db_id}]...")
-                await self.send_message(resolved_db_id, f"✅ **Bot Online & Connected**\n\n@{self.me.username} has started successfully.")
+                db_id = int(self.owner_db_channel)
+                await self.get_chat(db_id)
+                logger.info(f"Initial health check for Owner DB [{db_id}]...")
+                await self.send_message(db_id, f"✅ **Bot Online & Connected**\n\n@{self.me.username} has started successfully.")
                 self.is_healthy.set()
+                # Ek baar connect hote hi session state Mongo me sync karein
+                await session_store.save_session()
             except Exception as e:
-                logger.error(f"FATAL: Could not verify Owner DB Channel on startup. Error: {e}")
+                logger.error(f"Could not verify Owner DB Channel on startup: {e}")
                 self.is_healthy.set()
         else:
             logger.warning("Owner DB ID not set. Critical functionalities will fail.")
@@ -539,8 +546,8 @@ class Bot(Client):
         log_channel = getattr(Config, "LOG_CHANNEL", None)
         if log_channel:
             try:
-                log_target = getattr(Config, "LOG_CHANNEL_INVITE_LINK", None) or log_channel
-                resolved_log_id = await self.resolve_channel_target(log_target)
+                log_id = int(log_channel)
+                await self.get_chat(log_id)
 
                 now_str = datetime.now(UTC).strftime("%Y-%m-%d %H:%M:%S UTC")
                 restart_text = (
@@ -551,23 +558,26 @@ class Bot(Client):
                     f"• **Environment:** Koyeb Container"
                 )
                 await self.send_message(
-                    chat_id=resolved_log_id,
+                    chat_id=log_id,
                     text=restart_text,
                     parse_mode=ParseMode.MARKDOWN,
                     disable_web_page_preview=True
                 )
-                logger.info(f"Restart notification sent to LOG_CHANNEL: {resolved_log_id}")
+                logger.info(f"Restart notification sent to LOG_CHANNEL: {log_id}")
+                await session_store.save_session()
             except Exception as e:
                 logger.error(f"Failed to send restart alert to LOG_CHANNEL: {e}")
 
         logger.info(f"Bot @{self.me.username} started successfully with direct processing architecture.")
 
     async def stop(self, *args):
-        logger.info("Stopping bot...")
+        logger.info("Saving session to MongoDB before shutdown...")
+        try:
+            await session_store.save_session()
+        except Exception as e:
+            logger.error(f"Error saving session on stop: {e}")
+
         if self.web_runner: 
             await self.web_runner.cleanup()
         await super().stop()
         logger.info("Bot stopped.")
-
-if __name__ == "__main__":
-    Bot().run()
