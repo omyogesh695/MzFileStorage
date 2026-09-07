@@ -467,7 +467,7 @@ class Bot(Client):
             is_currently_ok = False
             error_details = ""
             try:
-                await self.get_chat(self.owner_db_channel)
+                await self.get_chat(int(self.owner_db_channel))
                 is_currently_ok = True
                 self.last_health_check_error = ""
             except Exception as e:
