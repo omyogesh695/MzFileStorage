@@ -35,7 +35,25 @@ BATCH_SIZE_LIMIT = 50
 
 class Bot(Client):
     def __init__(self):
-        super().__init__("FinalStorageBot", api_id=Config.API_ID, api_hash=Config.API_HASH, bot_token=Config.BOT_TOKEN, plugins=dict(root="handlers"))
+        session_str = getattr(Config, "SESSION_STRING", None)
+        if session_str:
+            super().__init__(
+                name="FinalStorageBot",
+                session_string=session_str,
+                api_id=Config.API_ID,
+                api_hash=Config.API_HASH,
+                bot_token=Config.BOT_TOKEN,
+                plugins=dict(root="handlers")
+            )
+        else:
+            super().__init__(
+                name="FinalStorageBot",
+                api_id=Config.API_ID,
+                api_hash=Config.API_HASH,
+                bot_token=Config.BOT_TOKEN,
+                plugins=dict(root="handlers")
+            )
+
         self.me = None
         self.web_app = None
         self.web_runner = None
@@ -66,7 +84,7 @@ class Bot(Client):
         self.is_healthy.set()
         self.restart_lock = asyncio.Lock()
         self.last_health_check_status = True
-        self.last_health_check_error = "" 
+        self.last_health_check_error = ""
 
     async def execute_with_retry(self, coro, *args, **kwargs):
         retries = 7
@@ -74,7 +92,7 @@ class Bot(Client):
         for i in range(retries):
             try:
                 await self.is_in_flood_wait.wait()
-                await self.is_healthy.wait()
+             await self.is_healthy.wait()
                 return await coro(*args, **kwargs)
             except FloodWait as e:
                 logger.warning(f"FloodWait of {e.value}s detected. Engaging global pause.")
