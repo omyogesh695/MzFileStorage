@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 BATCH_SIZE_LIMIT = 50
 
 class Bot(Client):
-        def __init__(self):
+    def __init__(self):
         # Startup se pehle MongoDB se .session file restore
         try:
             loop = asyncio.get_event_loop()
@@ -59,7 +59,6 @@ class Bot(Client):
         self.me = None
         self.web_app = None
         self.web_runner = None
-        # ... baaki properties as it is rahengi ...
 
         self.owner_db_channel = Config.OWNER_DB_CHANNEL
         self.stream_channel_id = None
@@ -87,7 +86,6 @@ class Bot(Client):
         self.restart_lock = asyncio.Lock()
         self.last_health_check_status = True
         self.last_health_check_error = ""
-
     async def execute_with_retry(self, coro, *args, **kwargs):
         retries = 7
         base_delay = 5
@@ -495,21 +493,7 @@ class Bot(Client):
                         logger.error(f"Could not send critical alert to admin: {e}")
                 self.last_health_check_status = False
 
-    async def resolve_channel_target(self, chat_target):
-        """Resolves target via Invite Link or ID and returns integer chat_id"""
-        if not chat_target:
-            return None
-        target_str = str(chat_target).strip()
-        # Agar link hai (t.me/...)
-        if "t.me/" in target_str:
-            chat = await self.get_chat(target_str)
-            return chat.id
-        # Agar plain numeric ID hai
-        chat = await self.get_chat(int(target_str))
-        return chat.id
-
     async def session_sync_loop(self):
-        """Har 10 minute me .session file ko MongoDB me backup karega"""
         while True:
             await asyncio.sleep(600)
             await session_store.save_session()
@@ -518,10 +502,8 @@ class Bot(Client):
         await super().start()
         self.me = await self.get_me()
 
-        # Background MongoDB session sync
         asyncio.create_task(self.session_sync_loop())
 
-        # 1. Resolve & Verify Owner DB Channel (Direct Private ID)
         if self.owner_db_channel:
             try:
                 db_id = int(self.owner_db_channel)
@@ -529,7 +511,6 @@ class Bot(Client):
                 logger.info(f"Initial health check for Owner DB [{db_id}]...")
                 await self.send_message(db_id, f"✅ **Bot Online & Connected**\n\n@{self.me.username} has started successfully.")
                 self.is_healthy.set()
-                # Ek baar connect hote hi session state Mongo me sync karein
                 await session_store.save_session()
             except Exception as e:
                 logger.error(f"Could not verify Owner DB Channel on startup: {e}")
@@ -542,7 +523,6 @@ class Bot(Client):
         asyncio.create_task(self.connection_health_check())
         asyncio.create_task(self.daily_stats_notifier())
 
-        # 2. Resolve & Send Log Channel Alert
         log_channel = getattr(Config, "LOG_CHANNEL", None)
         if log_channel:
             try:
@@ -581,3 +561,6 @@ class Bot(Client):
             await self.web_runner.cleanup()
         await super().stop()
         logger.info("Bot stopped.")
+
+if __name__ == "__main__":
+    Bot().run()
