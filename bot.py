@@ -92,7 +92,7 @@ class Bot(Client):
         for i in range(retries):
             try:
                 await self.is_in_flood_wait.wait()
-             await self.is_healthy.wait()
+                await self.is_healthy.wait()
                 return await coro(*args, **kwargs)
             except FloodWait as e:
                 logger.warning(f"FloodWait of {e.value}s detected. Engaging global pause.")
