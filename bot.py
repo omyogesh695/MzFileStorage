@@ -441,7 +441,8 @@ class Bot(Client):
         logger.info("✅ Bot health monitor started.")
         while True:
             await asyncio.sleep(120)
-            if not self.owner_db_channel: continue
+            if not self.owner_db_channel: 
+                continue
 
             is_currently_ok = False
             error_details = ""
@@ -456,54 +457,57 @@ class Bot(Client):
                 self.last_health_check_error = str(e)
 
             if is_currently_ok:
-                if not self.is_healthy.is_set():
-                    logger.info("✅ HEALTH CHECK PASSED: Connection and permissions in Owner DB Channel are restored.")
-                    self.is_healthy.set()
+                if not self.last_health_check_status:
+                    logger.info("✅ HEALTH CHECK PASSED: Connection to Owner DB Channel restored.")
+                    try:
+                        await self.send_message(
+                            Config.ADMIN_ID,
+                            f"✅ **BOT RECOVERED**\n\nOwner DB Channel (`{self.owner_db_channel}`) connection restored successfully."
+                        )
+                    except Exception as admin_err:
+                        logger.error(f"Could not send recovery alert to admin: {admin_err}")
+                self.is_healthy.set()
                 self.last_health_check_status = True
             else:
-                if self.is_healthy.is_set():
-                    logger.critical("🚨 BOT UNHEALTHY: Pausing file processing due to DB channel failure.")
-                    self.is_healthy.clear()
+                # Agar pehle theek tha aur ab fail hua, toh sirf 1 baar Admin ko notify karega
+                if self.last_health_check_status:
+                    logger.warning("⚠️ Warning Admin: DB Channel connection issue detected.")
                     try:
-                        await self.send_message(Config.ADMIN_ID,
-                            f"**🚨 BOT CRITICAL ERROR**\n\n"
-                            f"I can no longer operate in the Owner DB Channel (`{self.owner_db_channel}`). File processing is **paused**.\n\n"
+                        await self.send_message(
+                            Config.ADMIN_ID,
+                            f"**⚠️ BOT WARNING: Channel Peer Issue**\n\n"
+                            f"Owner DB Channel (`{self.owner_db_channel}`) access temporarily nahi mil raha.\n\n"
                             f"**Reason:** `{error_details}`\n\n"
-                            "I will try to recover automatically. Please check my admin rights in the channel and the server's network."
+                            f"ℹ️ Bot freeze nahi hua hai. Agar redeploy hua hai, toh channel se koi bhi message bot ko forward karein ya file stream hone ka wait karein."
                         )
                     except Exception as e:
-                        logger.error(f"Could not send critical alert to admin: {e}")
+                        logger.error(f"Could not send warning alert to admin: {e}")
+                
+                # Notice: self.is_healthy.clear() nahi lagaya taaki bot lock na ho
                 self.last_health_check_status = False
 
     async def start(self):
         await super().start()
         self.me = await self.get_me()
-        
-        # --- LEGENDARY FIX: Removed invalid session hydration for bots ---
-        # This block caused the BOT_METHOD_INVALID error and is not needed.
-        # logger.info("Hydrating session...")
-        # try:
-        #     async for _ in self.get_dialogs(): pass
-        #     logger.info("Session hydration complete.")
-        # except Exception as e: logger.error(f"Could not hydrate session: {e}")
 
         if self.owner_db_channel:
             try:
                 logger.info(f"Initial health check for Owner DB [{self.owner_db_channel}]...")
                 await self.send_message(self.owner_db_channel, f"✅ **Bot Online & Connected**\n\n@{self.me.username} has started successfully.")
-                self.is_healthy.set()
             except Exception as e:
-                logger.error(f"FATAL: Could not verify Owner DB Channel on startup. Error: {e}")
-                self.is_healthy.clear()
+                logger.warning(f"Startup channel check warning: {e} (Bot will continue running)")
         else:
-            logger.warning("Owner DB ID not set. Critical functionalities will fail.")
-        
+            logger.warning("Owner DB ID not set.")
+
+        # Bot ko hamesha healthy mark karein taaki processing dead na ho
+        self.is_healthy.set()
+
         await self.start_web_server()
         asyncio.create_task(self.daily_restart_handler())
         asyncio.create_task(self.connection_health_check())
         asyncio.create_task(self.daily_stats_notifier())
         logger.info(f"Bot @{self.me.username} started successfully with direct processing architecture.")
-
+        
     async def stop(self, *args):
         logger.info("Stopping bot...")
         if self.web_runner: await self.web_runner.cleanup()
