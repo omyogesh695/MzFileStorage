@@ -224,13 +224,20 @@ async def start_command(client, message):
                 fname = file_obj.get("file_name", "Unknown File") if file_obj else "Unknown"
                 gap_mins = owner_settings.get('verify_gap', 720) if owner_settings else 720
 
-                # Channel Log Send (Indian Standard Time)
+                # Channel Log Send (Indian Standard Time + Username)
                 if vlog_ch:
                     try:
+                        u = message.from_user
+                        if u.username:
+                            user_str = f"@{u.username} (`{requester_id}`)"
+                        else:
+                            first_name = u.first_name or "User"
+                            user_str = f"[{first_name}](tg://user?id={requester_id}) (`{requester_id}`)"
+
                         ist_time = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
                         log_msg = (
                             f"⚡️ **Shortener Step {current_step} Passed!**\n\n"
-                            f"👤 **User:** {message.from_user.mention} (`{requester_id}`)\n"
+                            f"👤 **User:** {user_str}\n"
                             f"📁 **File:** `{fname}`\n"
                             f"🔢 **Step:** `{current_step}/{total_steps}`\n"
                             f"⏱ **Access Valid:** `{gap_mins} Minutes`\n"
