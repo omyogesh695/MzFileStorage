@@ -22,7 +22,7 @@ logger = logging.getLogger(__name__)
 PHOTO_CAPTION_LIMIT = 1024
 TEXT_MESSAGE_LIMIT = 4096
 
-ia = Cinemagoer(accessSystem='http')
+ia = Cinemagoer()
 
 # --- DECREED ADDITION: START ---
 # A comprehensive map for detecting languages from filenames.
