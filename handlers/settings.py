@@ -126,14 +126,17 @@ async def get_shortener_menu_parts(user_id):
     s1_url = user.get('shortener_url_1') or user.get('shortener_url')
     s2_url = user.get('shortener_url_2')
     s3_url = user.get('shortener_url_3')
-    gap_minutes = user.get('verify_gap', 720)
+    
+    gap_1 = user.get('verify_gap_1', 30)
+    gap_2 = user.get('verify_gap_2', 60)
+    gap_3 = user.get('verify_gap_3', 720)
     
     status_text = 'ON 🟢' if is_enabled else 'OFF 🔴'
     
     text = (
         "**🔗 3-Step Shortener Settings**\n\n"
         f"**Status:** {status_text}\n"
-        f"**Verification Gap:** `{gap_minutes}` Minutes (~{int(gap_minutes)//60}h {int(gap_minutes)%60}m)\n\n"
+        f"⏱ **Gaps:** S1: `{gap_1}m` | S2: `{gap_2}m` | S3: `{gap_3}m`\n\n"
         f"**1️⃣ Shortener 1:** `{s1_url or 'Not Set'}`\n"
         f"**2️⃣ Shortener 2:** `{s2_url or 'Not Set'}`\n"
         f"**3️⃣ Shortener 3:** `{s3_url or 'Not Set'}`\n"
@@ -141,7 +144,11 @@ async def get_shortener_menu_parts(user_id):
     
     buttons = [
         [InlineKeyboardButton(f"Turn Shortener {'OFF 🔴' if is_enabled else 'ON 🟢'}", callback_data="toggle_shortener")],
-        [InlineKeyboardButton("⏱️ Set Verify Gap Time", callback_data="set_verify_gap")],
+        [
+            InlineKeyboardButton(f"⏱️ Gap 1 ({gap_1}m)", callback_data="set_gap_1"),
+            InlineKeyboardButton(f"⏱️ Gap 2 ({gap_2}m)", callback_data="set_gap_2"),
+            InlineKeyboardButton(f"⏱️ Gap 3 ({gap_3}m)", callback_data="set_gap_3")
+        ],
         [
             InlineKeyboardButton("✏️ Shortener 1", callback_data="set_shortener_1"),
             InlineKeyboardButton("✏️ Shortener 2", callback_data="set_shortener_2"),
@@ -165,21 +172,22 @@ async def reset_shortener_handler(client, query):
     await safe_edit_message(query, text=text, reply_markup=markup)
 
 
-@Client.on_callback_query(filters.regex("^set_verify_gap$"))
+@Client.on_callback_query(filters.regex(r"^set_gap_(\d+)$"))
 async def set_verify_gap_handler(client, query):
     await query.answer()
     user_id = query.from_user.id
+    step = int(query.data.split("_")[-1])
     prompt_msg = None
     try:
         prompt_msg = await query.message.edit_text(
-            "⏱️ **Set Verification Gap Time**\n\n"
-            "Please send the time gap in **minutes**.\n"
-            "After this duration, the user must re-verify.\n\n"
+            f"⏱️ **Set Verification Gap for Step {step}**\n\n"
+            "Please send the time gap in **minutes** for this step.\n"
+            f"After completing Step {step}, user ko itne time ka access milega.\n\n"
             "**Examples:**\n"
+            "• `15` (15 Minutes)\n"
             "• `30` (30 Minutes)\n"
             "• `120` (2 Hours)\n"
-            "• `720` (12 Hours)\n"
-            "• `1440` (24 Hours)",
+            "• `720` (12 Hours)",
             reply_markup=go_back_button(user_id)
         )
         msg = await client.listen(chat_id=user_id, timeout=120, filters=filters.text & filters.private)
@@ -191,8 +199,12 @@ async def set_verify_gap_handler(client, query):
             return
             
         minutes = int(minutes_str)
-        await update_user(user_id, "verify_gap", minutes)
-        await prompt_msg.edit_text(f"✅ Verification gap set to **{minutes} Minutes**.")
+        # Specific step gap update karein
+        await update_user(user_id, f"verify_gap_{step}", minutes)
+        if step == 1:
+            await update_user(user_id, "verify_gap", minutes)  # Fallback compatibility
+            
+        await prompt_msg.edit_text(f"✅ **Step {step}** Verification gap set to **{minutes} Minutes**.")
         await asyncio.sleep(2)
         text, markup = await get_shortener_menu_parts(user_id)
         await safe_edit_message(prompt_msg, text=text, reply_markup=markup)
