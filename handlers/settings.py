@@ -1,4 +1,4 @@
-# mzbotz/mz-file-store/handlers/settings.py 
+# handlers/settings.py 
 
 import asyncio
 import base64
