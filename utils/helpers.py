@@ -97,11 +97,36 @@ def get_resolution_num(quality_str: str) -> int:
 async def clean_and_parse_filename(name: str, cache: dict = None):
     original_name = name or ""
 
-    # 1. Strip Extension & Delimiters
+    # 1. Strip Extension
     clean_base = re.sub(r'\.(mp4|mkv|avi|webm|ts|mov|flv|m4v)$', '', original_name, flags=re.IGNORECASE)
-    clean_base = clean_base.replace('_', ' ').replace('.', ' ')
-    
-    # 2. Extract Source / Rip Type
+
+    # 2. Extract Languages (Raw name se)
+    raw_lower = re.sub(r'[\._\-\(\)\[\]\{\}:#~]', ' ', original_name.lower())
+    detected_languages = []
+    lang_checks = [
+        (r'\b(hindi|hin)\b', 'Hindi'), (r'\b(english|eng)\b', 'English'),
+        (r'\b(tamil|tam)\b', 'Tamil'), (r'\b(telugu|tel)\b', 'Telugu'),
+        (r'\b(malayalam|mal)\b', 'Malayalam'), (r'\b(kannada|kan)\b', 'Kannada'),
+        (r'\b(marathi|mar)\b', 'Marathi'), (r'\b(punjabi|pun)\b', 'Punjabi'),
+        (r'\b(bengali|bangla|ben)\b', 'Bengali'), (r'\b(gujarati|guj)\b', 'Gujarati'),
+        (r'\b(korean|kor)\b', 'Korean'), (r'\b(japanese|jap)\b', 'Japanese'),
+        (r'\b(french|fre)\b', 'French'), (r'\b(german|ger)\b', 'German'),
+        (r'\b(spanish|spa)\b', 'Spanish'), (r'\b(russian|rus)\b', 'Russian')
+    ]
+    for pattern, lang_name in lang_checks:
+        if re.search(pattern, raw_lower) and lang_name not in detected_languages:
+            detected_languages.append(lang_name)
+    if not detected_languages:
+        if re.search(r'\bmulti[\s._-]?(?:audio)?\b', raw_lower):
+            detected_languages.append("Multi-Audio")
+        elif re.search(r'\bdual[\s._-]?(?:audio)?\b', raw_lower):
+            detected_languages.append("Dual-Audio")
+
+    # 3. Extract Resolution
+    res_match = re.search(r'\b(2160p|4k|1080p|720p|576p|540p|480p|360p|240p)\b', clean_base, re.IGNORECASE)
+    found_resolution = res_match.group(1).lower() if res_match else ""
+
+    # 4. Extract Source Type
     found_source = ""
     source_patterns = [
         (r'\b(?:web[\s\-_]?dl|webdl)\b', 'WEB-DL'),
@@ -115,199 +140,96 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
     for sp, s_label in source_patterns:
         if re.search(sp, clean_base, re.IGNORECASE):
             found_source = s_label
-            clean_base = re.sub(sp, ' ', clean_base, flags=re.IGNORECASE)
             break
 
-    # 3. Universal Part Detection (Safe from Movie Titles like 'Brahmastra Part 1')
+    # 5. Extract Part / CD Details
     part_info_str = ""
-    part_num = None
+    m_part = re.search(r'\b(?:part|pt|cd|disc|disk|vol|volume)\s*0*([1-9]\d*)\b', clean_base, re.IGNORECASE)
+    if m_part:
+        part_info_str = f"Part {int(m_part.group(1)):02d}"
 
-    year_match = re.search(r'\b(19\d{2}|20\d{2})\b', clean_base)
-    if year_match:
-        target_str = original_name[year_match.end():]
-    else:
-        target_str = original_name
-
-    s_raw = re.sub(r'[\._\-\(\)\[\]\{\}:]', ' ', target_str.lower())
-
-    m_std = re.search(r'\b(?:part|pt|cd|disc|disk|vol|volume)\s*0*([1-9]\d*)\b', s_raw)
-    m_of = re.search(r'\b(?:part|pt|cd)?\s*0*([1-9]\d*)\s*(?:of|_of_)\s*\d+\b', s_raw)
-    m_roman = re.search(r'\b(?:part|pt|cd|disc|disk)\s+(i|ii|iii|iv|v|vi)\b', s_raw)
-    m_word = re.search(r'\b(?:part|pt|cd)\s+(one|two|three|four|five)\b', s_raw)
-
-    if m_std:
-        part_num = int(m_std.group(1))
-    elif m_of:
-        part_num = int(m_of.group(1))
-    elif m_roman:
-        part_num = {'i': 1, 'ii': 2, 'iii': 3, 'iv': 4, 'v': 5, 'vi': 6}.get(m_roman.group(1))
-    elif m_word:
-        part_num = {'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5}.get(m_word.group(1))
-
-    if part_num:
-        part_info_str = f"Part {part_num:02d}"
-        if year_match:
-            clean_pre = clean_base[:year_match.end()]
-            clean_post = clean_base[year_match.end():]
-            clean_post = re.sub(r'\b(?:part|pt|cd|disc|disk|vol|volume)\s*0*\d+\b', ' ', clean_post, flags=re.IGNORECASE)
-            clean_post = re.sub(r'\b\d+\s*of\s*\d+\b', ' ', clean_post, flags=re.IGNORECASE)
-            clean_post = re.sub(r'\b(?:part|pt|cd|disc|disk)\s+(i|ii|iii|iv|v|vi|one|two|three|four|five)\b', ' ', clean_post, flags=re.IGNORECASE)
-            clean_base = clean_pre + clean_post
-        else:
-            clean_base = re.sub(r'\b(?:part|pt|cd|disc|disk|vol|volume)\s*0*\d+\b', ' ', clean_base, flags=re.IGNORECASE)
-            clean_base = re.sub(r'\b\d+\s*of\s*\d+\b', ' ', clean_base, flags=re.IGNORECASE)
-            clean_base = re.sub(r'\b(?:part|pt|cd|disc|disk)\s+(i|ii|iii|iv|v|vi|one|two|three|four|five)\b', ' ', clean_base, flags=re.IGNORECASE)
-
-    # 4. Extract Resolution
-    res_match = re.search(r'\b(2160p|4k|1080p|720p|576p|540p|480p|360p|240p)\b', clean_base, re.IGNORECASE)
-    found_resolution = res_match.group(1).lower() if res_match else ""
-
-    # 5. Extract Languages Directly from Original Raw Filename
-    raw_lower = re.sub(r'[\._\-\(\)\[\]\{\}:#~]', ' ', original_name.lower())
-    detected_languages = []
-    
-    lang_checks = [
-        (r'\b(hindi|hin)\b', 'Hindi'),
-        (r'\b(english|eng)\b', 'English'),
-        (r'\b(tamil|tam)\b', 'Tamil'),
-        (r'\b(telugu|tel)\b', 'Telugu'),
-        (r'\b(malayalam|mal)\b', 'Malayalam'),
-        (r'\b(kannada|kan)\b', 'Kannada'),
-        (r'\b(marathi|mar)\b', 'Marathi'),
-        (r'\b(punjabi|pun)\b', 'Punjabi'),
-        (r'\b(bengali|bangla|ben)\b', 'Bengali'),
-        (r'\b(gujarati|guj)\b', 'Gujarati'),
-        (r'\b(korean|kor)\b', 'Korean'),
-        (r'\b(japanese|jap)\b', 'Japanese'),
-        (r'\b(french|fre)\b', 'French'),
-        (r'\b(german|ger)\b', 'German'),
-        (r'\b(spanish|spa)\b', 'Spanish'),
-        (r'\b(russian|rus)\b', 'Russian')
-    ]
-    
-    for pattern, lang_name in lang_checks:
-        if re.search(pattern, raw_lower) and lang_name not in detected_languages:
-            detected_languages.append(lang_name)
-
-    if re.search(r'\b(chinese|mandarin|cantonese)\b', raw_lower) and "Chinese" not in detected_languages:
-        detected_languages.append("Chinese")
-
-    if not detected_languages:
-        if re.search(r'\bmulti[\s._-]?(?:audio)?\b', raw_lower):
-            detected_languages.append("Multi-Audio")
-        elif re.search(r'\bdual[\s._-]?(?:audio)?\b', raw_lower):
-            detected_languages.append("Dual-Audio")
-
-    # 6. Clean URLs, Tags & Watermarks
-    clean_base = re.sub(r'@[a-zA-Z0-9_]+', ' ', clean_base)
-    clean_base = re.sub(r'(?:https?://)?(?:www\.)?[\w-]+\.(?:com|org|net|xyz|me|io|in|cc|biz|world|info|club|mobi|press|top|site|tech|online|store|live|co|shop|fun|tamilmv)\b', ' ', clean_base, flags=re.IGNORECASE)
-    clean_base = re.sub(r'\b(?:mkvcinemas|telly|sb old movie house|old movie house|bolly4u|vegamovies|luxmovies|hdmovies5|symoviiez|symoviez)\b', ' ', clean_base, flags=re.IGNORECASE)
-    clean_base = re.sub(r'[^\w\s\(\)\[\]\.\-_]', ' ', clean_base)
-    clean_base = re.sub(r'\s+', ' ', clean_base).strip()
-
-    # 7. Extract TV Season and Compact Episode Numbers (E01-04, E01)
+    # ==========================================
+    # UNIVERSAL TITLE CUTOFF ENGINE
+    # ==========================================
+    is_series = False
     season_info_str = ""
     episode_info_str = ""
-    show_name_candidate = clean_base
-
-    # Episode & Range Parsing Target (Normalize delimiters)
-    ep_target = re.sub(r'[\{\}\[\]\(\)]', ' ', original_name)
-
-    # Check 1: Explicit Range (e.g. {E01 - 04}, E01_04, E01-E04, EP01-EP04, Ep 01 to 04)
-    m_range = re.search(r'\b(?:e|ep|episode)[\s._\-]*(0*[1-9]\d*)\s*(?:-|to|_)\s*(?:e|ep|episode)?[\s._\-]*(0*[1-9]\d*)\b', ep_target, re.IGNORECASE)
-    
-    # Check 2: Range in brackets without 'E' (e.g. {01-04}, [01_06])
-    if not m_range:
-        m_range = re.search(r'[\{\[\(]\s*0*([1-9]\d*)\s*(?:-|to|_)\s*0*([1-9]\d*)\s*[\}\]\)]', original_name)
-
-    # Check 3: Single Episode (e.g. E01, EP05, Episode 1)
-    m_single = re.search(r'\b(?:e|ep|episode)[\s._\-]*0*([1-9]\d*)\b', ep_target, re.IGNORECASE)
-
-    if m_range:
-        start_ep = int(m_range.group(1))
-        end_ep = int(m_range.group(2))
-        episode_info_str = f"E{start_ep:02d}-{end_ep:02d}"
-        show_name_candidate = re.sub(r'[\{\[\(]?\s*(?:e|ep|episode)?[\s._\-]*0*\d+\s*(?:-|to|_)\s*(?:e|ep|episode)?[\s._\-]*0*\d+\s*[\}\]\)]?', ' ', show_name_candidate, flags=re.IGNORECASE)
-    elif m_single:
-        ep_num = int(m_single.group(1))
-        episode_info_str = f"E{ep_num:02d}"
-        show_name_candidate = re.sub(r'\b(?:e|ep|episode)[\s._\-]*0*\d+\b', ' ', show_name_candidate, flags=re.IGNORECASE)
-
-    # Season Check & Clean Title Isolation: Season ke baad ka sara kachra title se cut karein
-    s_match = re.search(r'\b(?:season|s)[\s._\-]*0*([1-9]\d*)\b', show_name_candidate, re.IGNORECASE)
-    if s_match:
-        season_info_str = f"S{int(s_match.group(1)):02d}"
-        # Cut string right before the Season tag to protect Title cleanly
-        show_name_candidate = show_name_candidate[:s_match.start()].strip()
-
-    is_series = bool(season_info_str or episode_info_str)
-
-    # 8. Extract Movie Year
     final_year = None
-    year_match = re.search(r'\b(19\d{2}|20\d{2})\b', show_name_candidate)
+
+    # Step A: Series Season & Episode Detection
+    # Formats supported: S01E02, S01 E02, 1x02, Season 1, Ep 05, E01-04
+    range_match = re.search(r'[\. _\-\[\(](?:e|ep|episode)[\s._\-]*0*([1-9]\d*)\s*(?:-|to|_)\s*(?:e|ep|episode)?0*([1-9]\d*)', clean_base, re.IGNORECASE)
+    se_match = re.search(r'[\. _\-\[\(]S0*([1-9]\d*)[\. _\-]?(?:E0*([1-9]\d*)|(?=[^a-z0-9]|$))', clean_base, re.IGNORECASE)
+    x_match = re.search(r'[\. _\-\[\(]0*([1-9]\d*)x0*([1-9]\d*)', clean_base, re.IGNORECASE)
+    ep_only_match = re.search(r'[\. _\-\[\(](?:episode|ep|e)[\s._\-]*0*([1-9]\d*)', clean_base, re.IGNORECASE)
+
+    cutoff_index = len(clean_base)
+
+    if range_match:
+        is_series = True
+        episode_info_str = f"E{int(range_match.group(1)):02d}-{int(range_match.group(2)):02d}"
+        cutoff_index = min(cutoff_index, range_match.start())
+
+    if se_match:
+        is_series = True
+        season_info_str = f"S{int(se_match.group(1)):02d}"
+        if se_match.group(2):
+            episode_info_str = f"E{int(se_match.group(2)):02d}"
+        cutoff_index = min(cutoff_index, se_match.start())
+    elif x_match:
+        is_series = True
+        season_info_str = f"S{int(x_match.group(1)):02d}"
+        episode_info_str = f"E{int(x_match.group(2)):02d}"
+        cutoff_index = min(cutoff_index, x_match.start())
+    elif ep_only_match and not is_series:
+        is_series = True
+        episode_info_str = f"E{int(ep_only_match.group(1)):02d}"
+        cutoff_index = min(cutoff_index, ep_only_match.start())
+
+    # Step B: Year Detection (1900 - 2099)
+    year_match = re.search(r'[\. _\-\[\(](19\d{2}|20\d{2})[\. _\-\]\)]', clean_base)
     if year_match:
         final_year = int(year_match.group(1))
-        # Series ya Movie dono ke liye year ke baad ka residual kachra title mein nahi aana chahiye
-        show_name_candidate = show_name_candidate[:year_match.start()].strip()
+        # Movie ho ya Series agar pehle year aaya ho to wahan cut karein
+        cutoff_index = min(cutoff_index, year_match.start())
 
-    # 9. Clean Residual Metadata Words
-    junk_words = [
-        'Combined', 'Complete', 'Pack', 'Batch', 'Dual', 'Audio', 'Multi',
-        'Comedycha', '5G', 'Full', 'HD', 'Sony', 'LIV', 'Zee5', 'JioCinema', 'Hotstar',
-        'Ep', 'Eps', 'Episode', 'Episodes', 'Season', 'Series', 'Dubbed', 'Completed',
-        'Web', r'\d+Kbps', 'UNCUT', 'ORG', 'HQ', 'ESubs', 'MSubs', 'REMASTERED', 'REPACK',
-        'PROPER', 'iNTERNAL', 'Sample', 'Video', 'AMZN', 'JH', 'HS', 'DDP',
-        'Hindi', 'English', 'Tamil', 'Telugu', 'Kannada', 'Malayalam', 'Punjabi', 'Marathi',
-        'NF', 'MAX', 'DSNP', 'ZEE5', 'HEVC', 'x265', 'x264', 'AAC', '576p',
-        '1tamilmv', 'www', 'mp4', 'mkv', 'avi', '2160p', '1080p', '720p', '540p', '480p', '360p',
-        r'S\d{1,2}', r'E\d{1,4}'
-    ]
-    junk_pattern_re = r'\b(' + r'|'.join(junk_words) + r')\b'
-    cleaned_candidate = re.sub(junk_pattern_re, ' ', show_name_candidate, flags=re.IGNORECASE)
-    cleaned_candidate = re.sub(r'[\(\[\{].*?[\)\]\}]', ' ', cleaned_candidate)
-    cleaned_candidate = re.sub(r'[-_.]', ' ', cleaned_candidate)
-    cleaned_candidate = re.sub(r'^[^\w\s]+', '', cleaned_candidate)
-    cleaned_candidate = re.sub(r'\s+', ' ', cleaned_candidate).strip()
+    # Step C: Universal Release Tag Cutoff (Agar upar ke tags na milein)
+    # Koi bhi common video term mile wahi se string ko aage delete kar do
+    meta_barrier = re.search(
+        r'[\. _\-\[\(](2160p|1080p|720p|480p|576p|4k|web[\-_]?dl|web[\-_]?rip|bluray|hdrip|dvdrip|hdtc|camrip|ddp\d?|aac\d?|x264|x265|hevc|remux|amzn|nf|hotstar|zee5)[\. _\-\]\)]',
+        clean_base,
+        re.IGNORECASE
+    )
+    if meta_barrier:
+        cutoff_index = min(cutoff_index, meta_barrier.start())
 
-    # 10. Check Shortcuts for Indian Serials
-    matched_show = None
-    default_lang = None
-    cand_lower = cleaned_candidate.lower().replace(" ", "")
-    
-    for key, (val_title, val_lang) in SERIAL_SHORTCUTS.items():
-        if key.replace(" ", "") in cand_lower:
-            matched_show = val_title
-            default_lang = val_lang
-            break
+    # Step D: Safe Slicing
+    clean_title_raw = clean_base[:cutoff_index]
 
-    if matched_show:
-        final_title = matched_show
-        final_year = None
-        if default_lang and not detected_languages:
-            detected_languages.append(default_lang)
-    else:
-        final_title = cleaned_candidate.title()
+    # Step E: Sanitizing the extracted Title
+    # Bracket contents, website URLs aur ads hatayein
+    title = re.sub(r'@[a-zA-Z0-9_]+', ' ', clean_title_raw)
+    title = re.sub(r'(?:https?://)?(?:www\.)?[\w-]+\.[a-zA-Z]{2,}', ' ', title)
+    title = re.sub(r'\b(?:mkvcinemas|telly|bolly4u|vegamovies|luxmovies|hdmovies5|symoviiez|extraflix|cinevood|moviesmod)\b', ' ', title, flags=re.IGNORECASE)
+    title = re.sub(r'[\(\[\{].*?[\)\]\}]', ' ', title)
+    title = re.sub(r'[^\w\s]', ' ', title)
+    title = re.sub(r'\s+', ' ', title).strip().title()
 
-    if not final_title:
-        final_title = " ".join(clean_base.split()[:3]).title()
+    if not title:
+        title = "Unknown"
 
-    # 11. Clean Duplicate Brackets and Format Final Display Title
-    final_title = re.sub(r'[\(\[\{\)\]\}]', '', final_title).strip()
-    display_title_main = final_title
-
-    if final_year:
+    # Step F: Final Display Title Creation
+    display_title_main = title
+    if final_year and not is_series:
         display_title_main += f" ({final_year})"
-
-    if season_info_str and season_info_str.lower() not in display_title_main.lower():
+    if season_info_str:
         display_title_main += f" {season_info_str}"
 
-    display_title_main = re.sub(r'\s*\(\s*\(', ' (', display_title_main)
-    display_title_main = re.sub(r'\)\s*\)', ')', display_title_main).strip()
-
-    batch_key = f"{final_title} {final_year}" if final_year and not is_series else f"{final_title} {season_info_str}".strip()
+    batch_key = f"{title} {season_info_str}".strip() if is_series else f"{title} {final_year or ''}".strip()
 
     return {
         "batch_title": batch_key,
+        "clean_name_only": title,      # Pure Series / Movie Name for TMDB Search
         "display_title": display_title_main,
         "year": final_year,
         "is_series": is_series,
