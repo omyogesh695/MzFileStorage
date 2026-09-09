@@ -1,4 +1,4 @@
-# mzbotz/mz-file-store/server/stream_routes.py
+# server/stream_routes.py
 
 import os
 import time
