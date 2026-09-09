@@ -1,4 +1,4 @@
-# mzbotz/mz-file-store/database/db.py
+# database/db.py
 
 import datetime
 import logging
