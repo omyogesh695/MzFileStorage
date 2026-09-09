@@ -384,16 +384,27 @@ async def api_v5_confirm_handler(request):
         file_obj = await get_file_by_unique_id(owner_id, file_unique_id)
         fname = file_obj.get("file_name", "Unknown File") if file_obj else "Unknown"
 
-        # --- STEP LOG DISPATCH FUNCTION (INDIAN STANDARD TIME) ---
+        # --- STEP LOG DISPATCH FUNCTION (INDIAN STANDARD TIME + USERNAME) ---
         async def send_channel_log(step_num):
             if not vlog_ch or not bot:
                 return
             try:
-                # Convert UTC to IST (+5:30)
+                # User info nikalna username ke liye
+                user_display = f"`{requester_id}`"
+                try:
+                    user_chat = await bot.get_users(requester_id)
+                    if user_chat.username:
+                        user_display = f"@{user_chat.username} (`{requester_id}`)"
+                    else:
+                        first_name = user_chat.first_name or "User"
+                        user_display = f"[{first_name}](tg://user?id={requester_id}) (`{requester_id}`)"
+                except Exception:
+                    pass
+
                 ist_time = datetime.datetime.utcnow() + datetime.timedelta(hours=5, minutes=30)
                 log_msg = (
                     f"⚡️ **Shortener Step {step_num} Passed!**\n\n"
-                    f"👤 **User ID:** `{requester_id}`\n"
+                    f"👤 **User:** {user_display}\n"
                     f"📁 **File:** `{fname}`\n"
                     f"🔢 **Step:** `{step_num}/{total_steps}`\n"
                     f"⏱ **Access Valid:** `{gap_mins} Minutes`\n"
