@@ -33,7 +33,8 @@ def generate_search_queries(title: str):
 async def _find_poster_from_imdb(query: str, year: str = None):
     try:
         search_query = f"{query} {year}".strip() if year else query
-        search_url = f"https://www.imdb.com/find?q={re.sub(r'\s+', '+', search_query)}"
+        encoded_query = re.sub(r'\s+', '+', search_query)
+        search_url = f"https://www.imdb.com/find?q={encoded_query}"
         headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64)', 'Accept-Language': 'en-US,en;q=0.5'}
 
         async with aiohttp.ClientSession(headers=headers) as session:
@@ -82,7 +83,6 @@ async def _find_poster_from_imdb(query: str, year: str = None):
         return None
 
     return None
-
 
 async def _find_poster_from_tmdb(query: str, year: str = None):
     if not getattr(Config, "TMDB_API_KEY", None):
