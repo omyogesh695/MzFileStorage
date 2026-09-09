@@ -268,9 +268,14 @@ async def create_post(client, user_id, messages, cache: dict):
     first_info = media_info_list[0]
     primary_display_title = first_info['display_title']
     
-    poster_search_query = first_info['display_title'].split('(')[0].replace(first_info.get('season_info', ''), '').strip()
-    post_poster = await get_poster(poster_search_query, first_info['year']) if user.get('show_poster', True) else None
+    # Pure clean name TMDB ko bhejein
+    poster_search_query = first_info.get('clean_name_only', first_info['display_title'])
     
+    # TV Series ke liye Year=None rakhein taaki TMDB exact match de
+    search_year = None if first_info.get('is_series') else first_info.get('year')
+    
+    post_poster = await get_poster(poster_search_query, search_year) if user.get('show_poster', True) else None
+
     footer_buttons = user.get('footer_buttons', [])
     footer_keyboard = InlineKeyboardMarkup([[InlineKeyboardButton(btn['name'], url=btn['url'])] for btn in footer_buttons]) if footer_buttons else None
     
