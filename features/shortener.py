@@ -1,4 +1,4 @@
-# mzbotz/mz-file-store/features/shortener.py 
+# features/shortener.py 
 
 import aiohttp
 import asyncio
