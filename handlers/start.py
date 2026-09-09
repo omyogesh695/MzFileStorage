@@ -1,4 +1,4 @@
-# mzbotz/mz-file-store/handlers/start.py
+# handlers/start.py
 
 import logging
 import re
