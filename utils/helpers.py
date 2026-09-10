@@ -268,8 +268,9 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
 
     # --- 3. CLEAN TITLE HANDLING ---
     title_to_clean = initial_title
-    if year_from_filename:
-        title_to_clean = re.sub(r'\b' + str(year_from_filename) + r'\b', '', title_to_clean)
+    
+    # Title se 4-digit year (19xx, 20xx) nikalna taaki repeat na ho
+    title_to_clean = re.sub(r'\b(19|20)\d{2}\b', '', title_to_clean).strip()
     
     if raw_episode_text_to_remove:
         title_to_clean = title_to_clean.replace(raw_episode_text_to_remove, '')
@@ -309,12 +310,12 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
 
     definitive_title, definitive_year = await get_definitive_title_from_imdb(cleaned_title)
 
-    final_title = definitive_title if definitive_title else cleaned_title.title()
+        final_title = definitive_title if definitive_title else cleaned_title.title()
+    # Title ke end se 4-digit year hatayein
+    final_title = re.sub(r'\b(19|20)\d{2}\b', '', final_title).strip()
     final_title = re.sub(r'^[^\w]+|[^\w]+$', '', final_title).strip()
 
     final_year = definitive_year if definitive_year else year_from_filename
-    if not final_year:
-        final_year = extract_year_from_filename(clean_name_ascii)
     
     is_series = bool(season_info_str) or bool(episode_info_str) or bool(day_info_str)
     
@@ -322,9 +323,10 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
     if season_info_str and season_info_str not in display_title_main:
         display_title_main += f" {season_info_str}"
     
+    # Single year format: brackets ke sath sirf ek baar saal judega
     display_title_with_year = display_title_main
-    if final_year and f"({final_year})" not in display_title_main:
-        display_title_with_year += f" ({final_year})"
+    if final_year:
+        display_title_with_year = f"{display_title_main} ({final_year})"
         
     return {
         "batch_title": f"{final_title} {season_info_str}".strip(),
