@@ -127,7 +127,7 @@ async def _find_poster_from_tmdb(query: str, year: str = None):
                         best_score = max(score_title, score_orig)
 
                         # Match accept tabhi hoga jab score >= 75% ho ya exact match ho
-                        if best_score >= 75 or query_norm == title_match:
+                        if best_score >= 60 or query_norm == title_match:
                             if result.get("poster_path"):
                                 return f"https://image.tmdb.org/t/p/original{result['poster_path']}"
 
