@@ -310,7 +310,7 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
 
     definitive_title, definitive_year = await get_definitive_title_from_imdb(cleaned_title)
 
-        final_title = definitive_title if definitive_title else cleaned_title.title()
+    final_title = definitive_title if definitive_title else cleaned_title.title()
     # Title ke end se 4-digit year hatayein
     final_title = re.sub(r'\b(19|20)\d{2}\b', '', final_title).strip()
     final_title = re.sub(r'^[^\w]+|[^\w]+$', '', final_title).strip()
