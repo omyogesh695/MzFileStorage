@@ -1,4 +1,5 @@
-# mzbotz/mz-file-store/bot.py
+# bot.py
+
 import logging
 import asyncio
 import time
