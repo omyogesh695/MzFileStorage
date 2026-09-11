@@ -498,14 +498,27 @@ async def get_main_menu(user_id):
 
 async def notify_and_remove_invalid_channel(client, user_id, channel_id, channel_type):
     try:
+        # Pehle get_chat try karein taaki peer resolve ho sake
+        await client.get_chat(channel_id)
         await client.get_chat_member(channel_id, "me")
         return True
-    except Exception:
+    except (PeerIdInvalid, ChannelInvalid):
+        # Peer cache na hone par channel delete NA karein, sirf ignore karein
+        logger.warning(f"Could not resolve peer cache for {channel_id} during startup/check.")
+        return True
+    except (ChannelPrivate, UserNotParticipant):
+        # Jab bot ko sach me channel se nikaal diya gaya ho tabhi remove karein
         db_key = 'index_db_channel' if channel_type == 'Index DB' else 'post_channels'
         user_settings = await get_user(user_id)
         if isinstance(user_settings.get(db_key), list):
             await remove_from_list(user_id, db_key, channel_id)
         else:
             await update_user(user_id, db_key, None)
-        await client.send_message(user_id, f"⚠️ **Channel Inaccessible**\n\nYour {channel_type} Channel (ID: `{channel_id}`) has been automatically removed because I could not access it.")
+        try:
+            await client.send_message(user_id, f"⚠️ **Channel Inaccessible**\n\nYour {channel_type} Channel (ID: `{channel_id}`) has been removed because the bot is not an admin or participant.")
+        except Exception:
+            pass
         return False
+    except Exception as e:
+        logger.error(f"Error checking channel {channel_id}: {e}")
+        return True
