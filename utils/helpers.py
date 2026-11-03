@@ -499,8 +499,11 @@ async def create_post(client, user_id, messages, cache: dict):
             encoded_batch = base64.urlsafe_b64encode(batch_data_str.encode('ascii')).decode('ascii').strip('=')
             batch_url = f"https://t.me/{bot_username}?start=b_{encoded_batch}"
             
-            # Hyperlink text format
-            batch_section = f"\n\n⚡ ➪ [All Quality Download (Batch)]({batch_url})"
+            batch_section = (
+                f"\n\n━━━━━━━━━━━━━━━━━━━━━━\n"
+                f"⚡ ➪ [⚡️ 𝙂𝙀𝙏 𝘼𝙇𝙇 𝙌𝙐𝘼𝙇𝙄𝙏𝙄𝙀𝙎 ⚡️]({batch_url})\n"
+                f"━━━━━━━━━━━━━━━━━━━━━━"
+            )
 
     all_link_entries = []
     for info in media_info_list:
