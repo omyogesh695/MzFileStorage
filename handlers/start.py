@@ -505,4 +505,212 @@ async def handle_public_file_request(client, message, requester_id, payload):
                     ),
                     parse_mode=enums.ParseMode.MARKDOWN
                 )
-                await update_user(owner_id, "f
+                await update_user(owner_id, "fsub_channel", None)
+            except Exception:
+                pass
+
+    # VERIFY CHECK
+    if requester_id == owner_id or requester_id == Config.ADMIN_ID:
+        verified = True
+    else:
+        verified = await is_user_verified(owner_id, requester_id)
+
+    if not verified:
+        current_step = await get_user_verify_step(owner_id, requester_id)
+        
+        step_url = owner_settings.get(f"shortener_url_{current_step}") or owner_settings.get("shortener_url")
+        step_api = owner_settings.get(f"shortener_api_{current_step}") or owner_settings.get("shortener_api")
+        shortener_enabled = owner_settings.get("shortener_enabled", True) if owner_settings else False
+
+        has_active_shortener = bool(shortener_enabled and step_url and step_api)
+        bot_username = client.me.username if hasattr(client, "me") and client.me else "Mzfilestorage_bot"
+
+        if not has_active_shortener:
+            verify_url = f"https://t.me/{bot_username}?start=verify_{owner_id}_{file_unique_id}"
+        else:
+            short_id = ''.join(random.choices(string.ascii_letters + string.digits, k=7))
+            ts = int(time.time())
+            secret_key = getattr(Config, "SECRET_KEY", "mz_super_secret_anti_bypass_key_2026")
+            
+            raw_data = f"{short_id}_{ts}"
+            sig = hmac.new(secret_key.encode(), raw_data.encode(), hashlib.sha256).hexdigest()
+            
+            from server.stream_routes import register_short_session
+            register_short_session(short_id, owner_id, file_unique_id, requester_id, ts)
+
+            koyeb_destination = f"{Config.APP_URL.rstrip('/')}/v/{short_id}?sig={sig}___{ts}"
+            verify_url = await get_shortlink(koyeb_destination, owner_id, step=current_step)
+
+        step_tut_key = f"how_to_download_link_{current_step}"
+        tutorial_link = owner_settings.get(step_tut_key) or owner_settings.get("how_to_download_link") if owner_settings else None
+        if not tutorial_link:
+            tutorial_link = Config.TUTORIAL_URL
+
+        btn_text = "🔐 Verify Now"
+
+        buttons = [
+            [InlineKeyboardButton(btn_text, url=verify_url)],
+            [InlineKeyboardButton("📖 How To Verify", url=tutorial_link)]
+        ]
+
+        return await message.reply_text(
+            "🔒 **Access Restricted**\n\n"
+            "To unlock this file, you must complete a quick verification.\n\n"
+            "👇 Click below to continue:",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=enums.ParseMode.MARKDOWN
+        )
+
+    await record_daily_view(owner_id, requester_id)
+    
+    from database.db import verified_users
+    v_data = await verified_users.find_one({"owner_id": owner_id, "requester_id": requester_id})
+    if v_data and "expires_at" in v_data:
+        rem_seconds = (v_data["expires_at"] - datetime.datetime.utcnow()).total_seconds()
+        if rem_seconds > 0:
+            rem_mins = int(rem_seconds // 60)
+            if rem_mins > 0:
+                await message.reply_text(
+                    f"💎 <b>Verify Access Unlocked</b>\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"⏳ <b>Validity:</b> <code>{rem_mins} Minutes</code>\n"
+                    f"⚡️ <b>Mode:</b> Instant Download (Ad-Free)\n"
+                    f"━━━━━━━━━━━━━━━━━━━━━\n"
+                    f"<i>Enjoy your streaming & downloads!</i>",
+                    parse_mode=enums.ParseMode.HTML
+                )
+
+    await send_file(client, requester_id, owner_id, file_unique_id)
+
+
+# ============================================================
+# ⚡ BATCH REQUEST DISPATCHER (FSUB + VERIFY + MULTI-SEND)
+# ============================================================
+async def handle_batch_request(client, message, requester_id, encoded_str):
+    owner_id, min_id, max_id = decode_batch_token(encoded_str)
+    if owner_id is None:
+        return await message.reply_text("Invalid or expired batch link.")
+
+    owner_settings = await get_user(owner_id)
+
+    # 1. FSub Check for Batch
+    fsub_channel = owner_settings.get('fsub_channel') if owner_settings else None
+    if fsub_channel:
+        try:
+            await client.get_chat_member(chat_id=fsub_channel, user_id="me")
+            try:
+                await client.get_chat_member(chat_id=fsub_channel, user_id=requester_id)
+            except UserNotParticipant:
+                try:
+                    invite_link = await client.export_chat_invite_link(fsub_channel)
+                except Exception:
+                    invite_link = None
+
+                buttons = []
+                if invite_link:
+                    buttons.append([InlineKeyboardButton("📢 Join Channel", url=invite_link)])
+                buttons.append([InlineKeyboardButton("🔄 Retry", callback_data=f"retry_b_{encoded_str.strip('=')}")])
+
+                return await message.reply_text(
+                    "You must join the channel to download this batch.",
+                    reply_markup=InlineKeyboardMarkup(buttons)
+                )
+        except Exception:
+            pass
+
+    # 2. Verify Check for Batch
+    if requester_id == owner_id or requester_id == Config.ADMIN_ID:
+        verified = True
+    else:
+        verified = await is_user_verified(owner_id, requester_id)
+
+    if not verified:
+        current_step = await get_user_verify_step(owner_id, requester_id)
+        
+        step_url = owner_settings.get(f"shortener_url_{current_step}") or owner_settings.get("shortener_url")
+        step_api = owner_settings.get(f"shortener_api_{current_step}") or owner_settings.get("shortener_api")
+        shortener_enabled = owner_settings.get("shortener_enabled", True) if owner_settings else False
+
+        has_active_shortener = bool(shortener_enabled and step_url and step_api)
+        bot_username = client.me.username if hasattr(client, "me") and client.me else "Mzfilestorage_bot"
+
+        batch_uniq_id = f"batch_{encoded_str.strip('=')}"
+
+        if not has_active_shortener:
+            verify_url = f"https://t.me/{bot_username}?start=verify_batch_{owner_id}_{encoded_str.strip('=')}"
+        else:
+            short_id = ''.join(random.choices(string.ascii_letters + string.digits, k=7))
+            ts = int(time.time())
+            secret_key = getattr(Config, "SECRET_KEY", "mz_super_secret_anti_bypass_key_2026")
+            
+            raw_data = f"{short_id}_{ts}"
+            sig = hmac.new(secret_key.encode(), raw_data.encode(), hashlib.sha256).hexdigest()
+            
+            from server.stream_routes import register_short_session
+            register_short_session(short_id, owner_id, batch_uniq_id, requester_id, ts)
+
+            koyeb_destination = f"{Config.APP_URL.rstrip('/')}/v/{short_id}?sig={sig}___{ts}"
+            verify_url = await get_shortlink(koyeb_destination, owner_id, step=current_step)
+
+        step_tut_key = f"how_to_download_link_{current_step}"
+        tutorial_link = owner_settings.get(step_tut_key) or owner_settings.get("how_to_download_link") if owner_settings else None
+        if not tutorial_link:
+            tutorial_link = Config.TUTORIAL_URL
+
+        buttons = [
+            [InlineKeyboardButton("🔐 Verify Now", url=verify_url)],
+            [InlineKeyboardButton("📖 How To Verify", url=tutorial_link)]
+        ]
+
+        return await message.reply_text(
+            "🔒 **Batch Access Restricted**\n\n"
+            "To unlock all quality files in this batch, please complete a quick verification.\n\n"
+            "👇 Click below to continue:",
+            reply_markup=InlineKeyboardMarkup(buttons),
+            parse_mode=enums.ParseMode.MARKDOWN
+        )
+
+    # 3. Verified -> Send Files
+    await record_daily_view(owner_id, requester_id)
+    await message.reply_text("📦 <b>Sending all batch files, please wait...</b>", parse_mode=enums.ParseMode.HTML)
+    await send_batch_files(client, requester_id, owner_id, min_id, max_id)
+
+
+@Client.on_callback_query(filters.regex(r"^retry_"))
+async def retry_handler(client, query):
+    try:
+        await query.message.delete()
+    except (MessageDeleteForbidden, MessageNotModified):
+        await query.answer("Retrying...", show_alert=False)
+    except Exception as e:
+        logger.warning(f"Could not delete message in retry_handler: {e}")
+    
+    try:
+        data_to_retry = query.data.split("_", 1)[1]
+        if data_to_retry.startswith("b_"):
+            await handle_batch_request(client, query.message, query.from_user.id, data_to_retry[2:])
+        else:
+            await handle_public_file_request(client, query.message, query.from_user.id, data_to_retry)
+    except UserIsBlocked:
+        logger.warning(f"User {query.from_user.id} blocked the bot during retry.")
+        await query.answer("Could not retry because you have blocked the bot.", show_alert=True)
+
+
+@Client.on_callback_query(filters.regex(r"go_back_"))
+async def go_back_callback(client, query):
+    user_id = int(query.data.split("_")[-1])
+    if query.from_user.id != user_id:
+        return await query.answer("This is not for you!", show_alert=True)
+    try:
+        menu_text, menu_markup = await get_main_menu(user_id)
+        await query.message.edit_text(
+            text=menu_text,
+            reply_markup=menu_markup,
+            parse_mode=enums.ParseMode.MARKDOWN,
+            disable_web_page_preview=True
+        )
+    except MessageNotModified:
+        await query.answer()
+    except Exception as e:
+        logger.error(f"Error in go_back_callback: {e}")
+        await query.answer("An error occurred while loading the menu.", show_alert=True)
