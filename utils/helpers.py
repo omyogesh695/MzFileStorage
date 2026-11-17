@@ -473,6 +473,9 @@ async def create_post(client, user_id, messages, cache: dict):
         raw_batch = raw_batch.replace(season_tag, '').strip()
 
     poster_search_query = first_info.get('clean_search_title') or raw_batch or base_title_clean
+    if season_tag and season_tag.lower() not in poster_search_query.lower():
+        poster_search_query = f"{poster_search_query} {season_tag}".strip()
+
     poster_search_query = re.sub(r'\b(comedycha\s*5g|comedycha)\b.*$', '', poster_search_query, flags=re.IGNORECASE).strip()
     poster_search_query = re.sub(r'\s+', ' ', poster_search_query).strip()
 
