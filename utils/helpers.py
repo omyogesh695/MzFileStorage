@@ -155,7 +155,7 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
     if standalone_s:
         season_info_str = f"S{int(standalone_s.group(1)):02d}"
 
-    clean_for_ep = re.sub(r'\b(360p|480p|540p|576p|720p|1080p|1440p|2160p|4k|uhd)\b', ' RES_TAG ', clean_name_ascii, flags=re.IGNORECASE)
+    clean_for_ep = re.sub(r'(?<![A-Za-z0-9])(360p|480p|540p|576p|720p|1080p|1440p|2160p|4k|uhd)(?![A-Za-z0-9])', ' RES_TAG ', clean_name_ascii, flags=re.IGNORECASE)
 
     range_patterns = [
         (r'(?:[_\.\-\s\[]|^)(?:EP?|E)\s*0*(\d{1,3})\s*[_\.\-\s]+(?:EP?|E)?\s*0*(\d{1,3})(?:[_\.\-\s\]]|$)', 'no_season'),
@@ -257,7 +257,7 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
     # --- 2. QUALITY & METADATA EXTRACTOR ---
     extracted_tags = []
     
-    res_match = re.search(r'\b(480p|576p|720p|1080p|2160p|4k|uhd)\b', clean_name_ascii, re.IGNORECASE)
+    res_match = re.search(r'(?<![A-Za-z0-9])(360p|480p|540p|576p|720p|1080p|1440p|2160p|4k|uhd)(?![A-Za-z0-9])', clean_name_ascii, re.IGNORECASE)
     if res_match:
         extracted_tags.append(res_match.group(1).lower())
     elif parsed_info.get('resolution'):
