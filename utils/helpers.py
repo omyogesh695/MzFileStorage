@@ -155,8 +155,10 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
     if standalone_s:
         season_info_str = f"S{int(standalone_s.group(1)):02d}"
 
+    clean_for_ep = re.sub(r'\b(360p|480p|540p|576p|720p|1080p|1440p|2160p|4k|uhd)\b', ' RES_TAG ', clean_name_ascii, flags=re.IGNORECASE)
+
     range_patterns = [
-        (r'(?:[_\.\-\s\[]|^)(?:EP?|E)?\s*0*(\d{1,3})\s*[_\.\-\s]+(?:EP?|E)?\s*0*(\d{1,3})(?:[_\.\-\s\]]|$)', 'no_season'),
+        (r'(?:[_\.\-\s\[]|^)(?:EP?|E)\s*0*(\d{1,3})\s*[_\.\-\s]+(?:EP?|E)?\s*0*(\d{1,3})(?:[_\.\-\s\]]|$)', 'no_season'),
         (r'\[\s*(?:EP?|E)?\s*0*(\d{1,3})\s*(?:[-–—toTo]|\s+)\s*(?:EP?|E)?\s*0*(\d{1,3})\s*\]', 'no_season'),
         (r'S(\d{1,3}).*?\[?E?(\d{1,4})\s*[-_–—toTo]\s*E?(\d{1,4})\]?', 'season'),
         (r'\b(?:Ep|Episode|Epi|E)\s*0*(\d{1,3})\s*(?:[-–—toTo_]|\s+)\s*(?:EP?|E)?\s*0*(\d{1,3})\b', 'no_season'),
@@ -165,7 +167,7 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
     ]
 
     for pattern, p_type in range_patterns:
-        match = re.search(pattern, clean_name_ascii, re.IGNORECASE)
+        match = re.search(pattern, clean_for_ep, re.IGNORECASE)
         if match:
             groups = match.groups()
             raw_episode_text_to_remove = match.group(0)
@@ -318,6 +320,34 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
 
     title_to_clean = re.sub(r'[\(\[\{].*?[\)\]\}]', ' ', title_to_clean)
     title_to_clean = re.sub(r'[\(\[\{\}\]\)\'\"`]', ' ', title_to_clean)
+
+    # --- UNIVERSAL JUNK, CODEC, AUDIO & WEBSITE CLEANER ---
+    title_to_clean = re.sub(r'(?i)\b(?:H|x)[\s\._-]*26[45]\b', ' ', title_to_clean)
+    title_to_clean = re.sub(r'(?i)\b(?:DDP?|AAC|AC3|EAC3|DTS|TrueHD|FLAC|Atmos)[\s\._-]*(?:5[\s\._-]*1|7[\s\._-]*1|2[\s\._-]*0|2CH|6CH)?\b', ' ', title_to_clean)
+    title_to_clean = re.sub(r'(?i)\b(?:10|8)[\s\._-]*Bit\b', ' ', title_to_clean)
+    title_to_clean = re.sub(
+        r'(?i)\b(?:ExtraFlix|Vegamovies|KatMovieHD|MoviesMod|UHDMovies|HDHub4u|Filmyzilla|Filmywap|'
+        r'Pagalworld|MkvCinemas|Bolly4u|9xmovies|SkymoviesHD|JalshaMoviez|Mp4Moviez|DesireMovies|'
+        r'SSRMovies|WorldFree4u|World4ufree|1TamilMV|TamilRockers|Movierulz|CineVood|Olamovies|'
+        r'Pahe|PSArips|GalaxyRG|YTS|RARBG|EZTV|TGx|TorrentGalaxy|Sanet|Toonworld4all|RareToons|'
+        r'DeadToons|AnimeDekho|Kayoanime|Crunchyroll|Netflix|Hotstar|PrimeVideo|Zee5|SonyLiv|'
+        r'JioCinema|JioHotstar|Hoichoi|Aha|SunNXT|PlanetMarathi|UltraJhakaas)\b.*$',
+        ' ',
+        title_to_clean
+    )
+    title_to_clean = re.sub(
+        r'(?i)\b(?:Pw|Lol|Fun|Site|Online|Space|Store|Tech|Vip|Pro|In|Org|Net|Com|Co|Club|Live|Top|Buzz|Xyz|Info|Biz|Me|Io|Cc|Tv|App|Link)\b\s*$',
+        ' ',
+        title_to_clean
+    )
+    title_to_clean = re.sub(
+        r'(?i)\b(?:ESubs?|MSubs?|HSubs?|HardSub|SoftSub|Multi[\s_-]*Audio|Dual[\s_-]*Audio|Hindi[\s_-]*Dubbed|'
+        r'Orig(?:inal)?|Uncut|Unrated|Extended|Directors[\s_-]*Cut|Theatrical|IMAX|Proper|Repack|'
+        r'PreDVD|DVDScr|HDCAM|CAMRip|TSRip|HDTS|Line[\s_-]*Audio|Clean[\s_-]*Audio|HQ[\s_-]*Audio|'
+        r'x264|x265|HEVC|AVC|AV1|VP9|WEB[\s_-]*DL|WEBRip|HDRip|BRRip|BDRip|BluRay|DVDRip|HDTV)\b',
+        ' ',
+        title_to_clean
+    )
     
     junk_words = [
         'DS4K', 'DS-4K', 'Ep', 'Eps', 'Episode', 'Episodes', 'Season', 'Series', 'South', 'Dubbed', 'Completed', 'Esub', 'Villa',
