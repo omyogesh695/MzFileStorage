@@ -225,10 +225,13 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
     initial_title = parsed_info.get('title', '').strip()
     
     if not initial_title:
-        raw_before_tags = re.split(r'[\s._-]+(?:19\d{2}|20\d{2}|480p|720p|1080p|2160p|4k|hdtc|web-?dl|bluray)\b', clean_name_ascii, flags=re.IGNORECASE)[0]
+        raw_before_tags = re.split(
+            r'(?:^|[\s._-]+)(?:19\d{2}|20\d{2}|360p|480p|540p|576p|720p|1080p|1440p|2160p|4k|uhd|hdtc|hdcam|predvd|web-?dl|web-?rip|bluray|brrip|bdrip|hdrip|dvdrip)(?:$|[\s._-]+)',
+            clean_name_ascii,
+            maxsplit=1,
+            flags=re.IGNORECASE
+        )[0]
         initial_title = raw_before_tags.replace('.', ' ').replace('_', ' ').strip()
-    else:
-        initial_title = re.sub(r'^\d+\s*[-_.]\s*(?=[A-Za-z])', '', initial_title)
 
     if not season_info_str and parsed_info.get('season'):
         s_val = parsed_info.get('season')
@@ -372,9 +375,15 @@ async def clean_and_parse_filename(name: str, cache: dict = None):
     cleaned_title = re.sub(r'^[^\w]+|[^\w]+$', '', cleaned_title).strip()
     cleaned_title = re.sub(r'\s+', ' ', cleaned_title).strip()
     
-    if not cleaned_title: 
-        fallback_raw = clean_name_ascii.split('.')[0]
-        cleaned_title = fallback_raw.replace('_', ' ').replace('-', ' ').strip()
+    if not cleaned_title:
+        fallback_raw = re.sub(r'\.[a-zA-Z0-9]{2,4}$', '', clean_name_ascii)
+        fallback_raw = re.split(
+            r'(?:^|[\s._-]+)(?:19\d{2}|20\d{2}|360p|480p|540p|576p|720p|1080p|1440p|2160p|4k|uhd|hdtc|hdcam|predvd|web-?dl|web-?rip|bluray|brrip|bdrip|hdrip|dvdrip)(?:$|[\s._-]+)',
+            fallback_raw,
+            maxsplit=1,
+            flags=re.IGNORECASE
+        )[0]
+        cleaned_title = fallback_raw.replace('_', ' ').replace('.', ' ').replace('-', ' ').strip()
 
     definitive_title, definitive_year = await get_definitive_title_from_imdb(cleaned_title)
 
